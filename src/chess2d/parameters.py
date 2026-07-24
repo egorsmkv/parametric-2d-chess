@@ -121,6 +121,28 @@ PIECE_DIMS: dict[PieceType, PieceDims] = {
 # --------------------------------------------------------------------------
 
 
+# --------------------------------------------------------------------------
+# Size presets
+# --------------------------------------------------------------------------
+
+#: Board presets, as the size of one square in millimetres. The full board is
+#: ``8 * square_size`` plus the border, so "large" is a 520 mm playing surface.
+BOARD_SIZE_PRESETS: dict[str, float] = {
+    "small": 35.0,
+    "medium": 50.0,
+    "large": 65.0,
+}
+
+#: Figure presets, as a multiplier on the piece size within its square. Figures
+#: always scale with the board first; this is the extra size preference on top.
+#: "large" fills essentially the whole square (0.94 * 1.06 ~= 1.0).
+FIGURE_SIZE_PRESETS: dict[str, float] = {
+    "small": 0.78,
+    "medium": 1.0,
+    "large": 1.06,
+}
+
+
 @dataclass(frozen=True)
 class ChessStyle:
     """Bundle of tunable parameters for a generated chess set."""

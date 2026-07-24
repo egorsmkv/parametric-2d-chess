@@ -59,12 +59,14 @@ def _placed_side(side: Side, style: ChessStyle) -> Sketch:
     placed: list[Sketch] = []
     for file in range(8):
         piece = make_piece(
-            BACK_RANK[file], scale=style.piece_scale, mode=style.figure_mode
+            BACK_RANK[file], scale=style.piece_scale, mode=style.figure_mode,
+            square_size=style.square_size,
         )
         placed.append(place_piece(piece, file, back_rank_index, side, style.square_size))
     for file in range(8):
         pawn = make_piece(
-            PieceType.PAWN, scale=style.piece_scale, mode=style.figure_mode
+            PieceType.PAWN, scale=style.piece_scale, mode=style.figure_mode,
+            square_size=style.square_size,
         )
         placed.append(place_piece(pawn, file, pawn_rank_index, side, style.square_size))
 

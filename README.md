@@ -36,11 +36,29 @@ Flags:
 * `--no-solids` — skip the STEP/STL extrusions.
 * `--single-sided` — plain one-orientation silhouettes.
 * `--fused` — compact point-symmetric figures readable the same way by everyone.
+* `--board small|medium|large` — 35 / 50 / 65 mm squares (default `medium`).
+* `--figures small|medium|large` — how much of a square each piece fills.
 * a positional argument sets the output directory.
 
 ```bash
-python scripts/generate_all.py my_output --no-solids --fused
+python scripts/generate_all.py my_output --fused --board large --figures small
 ```
+
+## Sizes
+
+Board and figure sizes come as presets ([`BOARD_SIZE_PRESETS`](src/chess2d/parameters.py),
+[`FIGURE_SIZE_PRESETS`](src/chess2d/parameters.py)):
+
+| Preset | Board (square / playing area) | Figures (share of a square) |
+| --- | --- | --- |
+| Small | 35 mm → 280 mm | 73 % |
+| Medium *(default)* | 50 mm → 400 mm | 94 % |
+| Large | 65 mm → 520 mm | 100 % |
+
+Figures always scale **with** the board, so a smaller board yields
+proportionally smaller pieces; the figure preset is the extra size preference on
+top. Any millimetre value still works directly via `ChessStyle(square_size=...)`
+and `piece_scale`.
 
 `python build_model.py` is a root-level shortcut for the same generation step.
 
@@ -82,7 +100,8 @@ python scripts/app.py
 Then open the printed URL (default <http://127.0.0.1:7860>). The app lets you:
 
 * choose the **figure form** — two-sided, fused, or single-sided;
-* set **square size**, **piece thickness** and **board thickness**;
+* pick a **board size** and **figure size** — small, medium or large;
+* set **piece thickness** and **board thickness**;
 * **preview** the full starting position plus all six piece silhouettes, live;
 * **download** a ZIP with `svg/`, `dxf/`, and (optionally) `step/` + `stl/`.
 

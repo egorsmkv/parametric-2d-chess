@@ -42,9 +42,9 @@ from .geometry import (
 )
 from .parameters import PIECE_THICKNESS, SQUARE_SIZE, FigureMode, PieceType
 
-# Two-sided / fused figures are scaled so each nearly fills its square (a small
+# Composed figures are scaled to fill this fraction of their square (the small
 # margin keeps neighbouring ranks from touching).
-TWO_SIDED_FILL_HEIGHT: float = SQUARE_SIZE * 0.94
+FIGURE_FILL_FRACTION: float = 0.94
 
 # --------------------------------------------------------------------------
 # Common base (spec section 10)
@@ -290,10 +290,10 @@ _GENERATORS = {
 }
 
 
-def _fit_to_square(figure: Sketch) -> Sketch:
-    """Scale a composed figure so it nearly fills a square (max legibility)."""
+def _fit_to_square(figure: Sketch, square_size: float) -> Sketch:
+    """Scale a composed figure so it nearly fills its square (max legibility)."""
     height = figure.bounding_box().size.Y
-    return scaled(figure, TWO_SIDED_FILL_HEIGHT / height)
+    return scaled(figure, square_size * FIGURE_FILL_FRACTION / height)
 
 
 def make_piece(
@@ -301,6 +301,7 @@ def make_piece(
     scale: float = 1.0,
     mirrored: bool = False,
     mode: FigureMode = FigureMode.TWO_SIDED,
+    square_size: float = SQUARE_SIZE,
 ) -> Sketch:
     """Unified dispatcher returning the filled 2D face for any piece type.
 
@@ -309,6 +310,10 @@ def make_piece(
     player reads their end; ``FUSED`` merges the identifying tops into one
     compact point-symmetric figure that reads the same for everyone; ``SINGLE``
     is the plain one-orientation silhouette.
+
+    Figures always follow the board: they are sized against ``square_size`` so a
+    smaller board yields proportionally smaller pieces. ``scale`` then applies
+    the caller's own size preference on top.
     """
     if piece_type is PieceType.KNIGHT:
         sketch = make_knight(scale=1.0, facing="right" if mirrored else "left")
@@ -317,9 +322,13 @@ def make_piece(
         if mirrored:
             sketch = centered(mirror(sketch, about=Plane.YZ))
     if mode is FigureMode.TWO_SIDED:
-        sketch = _fit_to_square(two_sided(sketch))
+        sketch = _fit_to_square(two_sided(sketch), square_size)
     elif mode is FigureMode.FUSED:
-        sketch = _fit_to_square(fused_two_sided(sketch))
+        sketch = _fit_to_square(fused_two_sided(sketch), square_size)
+    else:
+        # SINGLE keeps its native relative proportions (king taller than pawn),
+        # scaled with the board so the pieces still fit smaller squares.
+        sketch = scaled(sketch, square_size / SQUARE_SIZE)
     return scaled(sketch, scale)
 
 
@@ -340,9 +349,12 @@ def make_piece_geometry(
     with_solid: bool = False,
     thickness: float = PIECE_THICKNESS,
     mode: FigureMode = FigureMode.TWO_SIDED,
+    square_size: float = SQUARE_SIZE,
 ) -> PieceGeometry:
     """Bundle the fill face, an outline and an optional thin solid for a piece."""
-    fill = make_piece(piece_type, scale=scale, mirrored=mirrored, mode=mode)
+    fill = make_piece(
+        piece_type, scale=scale, mirrored=mirrored, mode=mode, square_size=square_size
+    )
     ring = outline_ring(fill, outline_width)
     outline: Shape = ring if ring is not None else outline_wires(fill)
     solid = extrude(fill, amount=thickness) if with_solid else None
@@ -354,7 +366,8 @@ def make_piece_solid(
     thickness: float = PIECE_THICKNESS,
     scale: float = 1.0,
     mode: FigureMode = FigureMode.TWO_SIDED,
+    square_size: float = SQUARE_SIZE,
 ) -> Part:
     """Extrude a piece silhouette into a thin flat token (spec section 20)."""
-    sketch = make_piece(piece_type, scale=scale, mode=mode)
+    sketch = make_piece(piece_type, scale=scale, mode=mode, square_size=square_size)
     return extrude(sketch, amount=thickness)

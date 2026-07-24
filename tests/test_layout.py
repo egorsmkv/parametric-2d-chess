@@ -10,7 +10,15 @@ from chess2d.assembly import (
     place_piece,
 )
 from chess2d.board import square_center
-from chess2d.parameters import SQUARE_SIZE, PieceType, Side
+from chess2d.parameters import (
+    BOARD_SIZE_PRESETS,
+    FIGURE_SIZE_PRESETS,
+    SQUARE_SIZE,
+    ChessStyle,
+    FigureMode,
+    PieceType,
+    Side,
+)
 from chess2d.pieces import make_piece
 
 
@@ -85,6 +93,31 @@ def test_two_sided_figure_is_vertically_symmetric() -> None:
         box = figure.bounding_box()
         assert abs(box.min.Y + box.max.Y) < 1e-6
         assert len(figure.faces()) == 1
+
+
+@pytest.mark.parametrize("square_size", list(BOARD_SIZE_PRESETS.values()))
+@pytest.mark.parametrize("mode", list(FigureMode))
+def test_pieces_scale_with_board_size(square_size: float, mode: FigureMode) -> None:
+    # Figures must follow the board: on a smaller board they must shrink, or they
+    # spill into neighbouring squares and merge into each other.
+    comp = make_initial_position(ChessStyle(square_size=square_size, figure_mode=mode))
+    for layer in (comp.white_pieces, comp.black_pieces):
+        faces = layer.faces()
+        assert len(faces) == 16  # no piece merged with its neighbour
+        for face in faces:
+            box = face.bounding_box()
+            assert square_size >= box.size.X
+            assert square_size >= box.size.Y
+
+
+def test_figure_size_presets_scale_the_pieces() -> None:
+    # Larger preset -> larger figure on the same board.
+    heights = []
+    for multiplier in FIGURE_SIZE_PRESETS.values():
+        comp = make_initial_position(ChessStyle(piece_scale=multiplier))
+        heights.append(max(f.bounding_box().size.Y for f in comp.white_pieces.faces()))
+    assert heights == sorted(heights)
+    assert heights[0] < heights[-1]
 
 
 def test_pawn_ranks() -> None:

@@ -3,13 +3,18 @@
 
 Usage::
 
-    python scripts/generate_all.py [output_dir] [--no-solids] [--single-sided|--fused]
+    python scripts/generate_all.py [output_dir] [options]
 
 Figure mode (default two-sided):
 
 * ``--single-sided`` -- plain one-orientation silhouettes.
 * ``--fused``        -- compact point-symmetric figures readable the same way by
   every player.
+
+Sizes (both default to ``medium``):
+
+* ``--board small|medium|large``   -- 35 / 50 / 65 mm squares.
+* ``--figures small|medium|large`` -- how much of a square each piece fills.
 """
 
 from __future__ import annotations
@@ -21,11 +26,31 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from chess2d.export import generate_all  # noqa: E402
-from chess2d.parameters import ChessStyle, FigureMode  # noqa: E402
+from chess2d.parameters import (  # noqa: E402
+    BOARD_SIZE_PRESETS,
+    FIGURE_SIZE_PRESETS,
+    ChessStyle,
+    FigureMode,
+)
+
+
+def _preset(argv: list[str], flag: str, presets: dict[str, float]) -> tuple[str, float]:
+    """Read ``--flag <name>`` and map it to a preset value."""
+    name = "medium"
+    if flag in argv:
+        index = argv.index(flag) + 1
+        if index >= len(argv):
+            raise SystemExit(f"{flag} needs a value: {', '.join(presets)}")
+        name = argv[index]
+    if name not in presets:
+        raise SystemExit(f"unknown {flag} value {name!r}; choose from: {', '.join(presets)}")
+    return name, presets[name]
 
 
 def main(argv: list[str]) -> int:
-    args = [a for a in argv if not a.startswith("-")]
+    flag_values = {"--board", "--figures"}
+    skip = {argv[i + 1] for i, a in enumerate(argv) if a in flag_values and i + 1 < len(argv)}
+    args = [a for a in argv if not a.startswith("-") and a not in skip]
     with_solids = "--no-solids" not in argv
     if "--single-sided" in argv:
         mode = FigureMode.SINGLE
@@ -33,12 +58,17 @@ def main(argv: list[str]) -> int:
         mode = FigureMode.FUSED
     else:
         mode = FigureMode.TWO_SIDED
+    board_name, square_size = _preset(argv, "--board", BOARD_SIZE_PRESETS)
+    figure_name, piece_scale = _preset(argv, "--figures", FIGURE_SIZE_PRESETS)
     output_dir = args[0] if args else "output"
 
-    style = ChessStyle(figure_mode=mode)
+    style = ChessStyle(
+        figure_mode=mode, square_size=square_size, piece_scale=piece_scale
+    )
     print(
         f"Generating chess set into {output_dir!r} "
-        f"(solids={with_solids}, figure_mode={mode.value}) ..."
+        f"(solids={with_solids}, figure_mode={mode.value}, "
+        f"board={board_name}, figures={figure_name}) ..."
     )
     written = generate_all(output_dir=output_dir, style=style, with_solids=with_solids)
     for path in written:
