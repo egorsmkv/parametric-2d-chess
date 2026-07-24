@@ -7,6 +7,8 @@ Public API surface:
 * :mod:`chess2d.board` -- :func:`make_board` and square helpers.
 * :mod:`chess2d.assembly` -- :func:`make_initial_position` and placement.
 * :mod:`chess2d.export` -- SVG/DXF/STEP/STL writers and :func:`generate_all`.
+* :mod:`chess2d.estimate` -- 3D-printing material estimates.
+* :mod:`chess2d.report` -- the material-estimate PDF (needs the ``app`` extra).
 """
 
 from __future__ import annotations
@@ -23,6 +25,14 @@ from .board import (
     make_board,
     make_square,
     square_center,
+)
+from .estimate import (
+    MATERIALS,
+    Material,
+    PartEstimate,
+    PrintSettings,
+    SetEstimate,
+    estimate_set,
 )
 from .export import generate_all
 from .parameters import (
@@ -51,15 +61,21 @@ from .pieces import (
 __all__ = [
     "BACK_RANK",
     "BOARD_SIZE",
+    "MATERIALS",
     "PLAYING_SIZE",
     "SQUARE_SIZE",
     "BoardGeometry",
     "ChessComposition",
     "ChessStyle",
+    "Material",
+    "PartEstimate",
+    "PrintSettings",
     "FigureMode",
     "PieceGeometry",
     "PieceType",
+    "SetEstimate",
     "Side",
+    "estimate_set",
     "generate_all",
     "is_dark_square",
     "make_bishop",

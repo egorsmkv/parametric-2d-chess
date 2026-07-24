@@ -16,6 +16,7 @@ from typing import Any
 import gradio as gr
 
 from .assembly import make_initial_position
+from .estimate import DEFAULT_MATERIAL, MATERIALS, PrintSettings
 from .export import export_composition_svg, export_piece_svg, generate_all
 from .parameters import (
     BLACK_FILL_COLOR,
@@ -27,6 +28,10 @@ from .parameters import (
     PieceType,
 )
 from .pieces import FIGURE_FILL_FRACTION
+from .report import write_material_report
+
+#: Name the report carries inside the generated archive.
+REPORT_FILENAME = "3d_printing_estimate.pdf"
 
 # Human-readable labels mapped to the underlying figure modes.
 _MODES: dict[str, FigureMode] = {
@@ -163,6 +168,19 @@ _PLACEHOLDER = (
 _FILES = "abcdefgh"
 
 
+def _print_settings(material: str, filament_diameter: float, price_per_kg: float,
+                    layer_height: float, infill_percent: float) -> PrintSettings:
+    """Bundle the printing controls (the estimate's counterpart to :func:`_style`)."""
+    return PrintSettings(
+        material=material,
+        filament_diameter_mm=float(filament_diameter),
+        layer_height_mm=float(layer_height),
+        # The slider is a percentage; the model works in 0-1.
+        infill=float(infill_percent) / 100.0,
+        price_per_kg=float(price_per_kg),
+    )
+
+
 def _svg_inline(path: Path) -> str:
     """Read an exported SVG so it can be embedded and scaled by CSS."""
     svg = path.read_text()
@@ -249,19 +267,48 @@ def build_preview(mode_label: str, board_label: str, figure_label: str,
     )
 
 
+def _config_stem(style: ChessStyle, board_label: str, figure_label: str) -> str:
+    """Filename stem describing the chosen configuration."""
+    board_name, _ = _BOARD_CHOICES[board_label]
+    figure_name, _ = _FIGURE_CHOICES[figure_label]
+    return f"chess2d_{style.figure_mode.value}_board-{board_name}_figures-{figure_name}"
+
+
+def build_report(mode_label: str, board_label: str, figure_label: str,
+                 piece_thickness: float, board_thickness: float,
+                 material: str, filament_diameter: float, price_per_kg: float,
+                 layer_height: float, infill_percent: float) -> str:
+    """Write just the 3D-printing material report and return its path.
+
+    Needs no STEP/STL, so this returns in about a second.
+    """
+    style = _style(mode_label, board_label, figure_label, piece_thickness, board_thickness)
+    settings = _print_settings(
+        material, filament_diameter, price_per_kg, layer_height, infill_percent
+    )
+    stem = _config_stem(style, board_label, figure_label)
+    path = _fresh_dir("report") / f"{stem}_printing-estimate.pdf"
+    write_material_report(path, style=style, settings=settings)
+    return str(path)
+
+
 def build_files(mode_label: str, board_label: str, figure_label: str,
                 piece_thickness: float, board_thickness: float,
-                with_solids: bool) -> str:
+                with_solids: bool,
+                material: str, filament_diameter: float, price_per_kg: float,
+                layer_height: float, infill_percent: float) -> str:
     """Generate the full deliverable set and return a downloadable ZIP path."""
     style = _style(mode_label, board_label, figure_label, piece_thickness, board_thickness)
     out_dir = _fresh_dir("build")
     generate_all(output_dir=out_dir, style=style, with_solids=bool(with_solids))
 
-    # Name the archive after the chosen configuration.
-    board_name, _ = _BOARD_CHOICES[board_label]
-    figure_name, _ = _FIGURE_CHOICES[figure_label]
-    stem = f"chess2d_{style.figure_mode.value}_board-{board_name}_figures-{figure_name}"
-    archive_base = _fresh_dir("zip") / stem
+    # The printing estimate travels with the models it describes.
+    settings = _print_settings(
+        material, filament_diameter, price_per_kg, layer_height, infill_percent
+    )
+    write_material_report(out_dir / REPORT_FILENAME, style=style, settings=settings)
+
+    archive_base = _fresh_dir("zip") / _config_stem(style, board_label, figure_label)
     shutil.make_archive(str(archive_base), "zip", out_dir)
     return f"{archive_base}.zip"
 
@@ -310,13 +357,42 @@ def build_demo() -> gr.Blocks:
                         value=True, label="Include 3D solids (STEP + STL)",
                         info="Slower — untick for a quick vector-only export.",
                     )
+                with gr.Accordion("3D printing estimate", open=False):
+                    gr.Markdown(
+                        "<small>Drives the material report. These do not change the "
+                        "board drawing.</small>"
+                    )
+                    material = gr.Dropdown(
+                        choices=list(MATERIALS.keys()),
+                        value=DEFAULT_MATERIAL,
+                        label="Material",
+                    )
+                    filament_diameter = gr.Radio(
+                        choices=[1.75, 2.85],
+                        value=1.75,
+                        label="Filament diameter (mm)",
+                    )
+                    price_per_kg = gr.Number(
+                        value=25.0, minimum=0, label="Price per kg",
+                        info="In your own currency; the report just multiplies.",
+                    )
+                    layer_height = gr.Slider(
+                        0.08, 0.32, value=0.2, step=0.02, label="Layer height (mm)"
+                    )
+                    infill = gr.Slider(
+                        0, 100, value=15, step=5, label="Infill (%)",
+                        info="Barely matters for thin pieces — the report explains why.",
+                    )
+                    report_btn: Any = gr.Button("Material report (PDF)")
+                    report_file = gr.File(label="Your report (PDF)", height=100)
+
                 generate_btn: Any = gr.Button(
                     "Generate files (ZIP)", variant="primary", size="lg"
                 )
                 download = gr.File(label="Your download", height=120)
                 gr.Markdown(
-                    "<small>The archive holds `svg/`, `dxf/` and, with solids "
-                    "enabled, `step/` + `stl/`.</small>"
+                    "<small>The archive holds `svg/`, `dxf/`, the printing estimate "
+                    "PDF and, with solids enabled, `step/` + `stl/`.</small>"
                 )
             with gr.Column(scale=3, min_width=360):
                 preview = gr.HTML(value=_PLACEHOLDER, label="Preview")
@@ -332,9 +408,19 @@ def build_demo() -> gr.Blocks:
         for control in inputs:
             control.change(build_preview, inputs=inputs, outputs=preview)
 
+        # Printing controls stay out of `inputs`: they do not affect the drawing,
+        # and wiring them to .change would re-render the board for nothing.
+        print_inputs: list[Any] = [
+            material, filament_diameter, price_per_kg, layer_height, infill
+        ]
+        report_btn.click(
+            build_report,
+            inputs=[*inputs, *print_inputs],
+            outputs=report_file,
+        )
         generate_btn.click(
             build_files,
-            inputs=[*inputs, with_solids],
+            inputs=[*inputs, with_solids, *print_inputs],
             outputs=download,
         )
     return demo

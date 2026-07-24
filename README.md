@@ -105,13 +105,54 @@ Then open the printed URL (default <http://127.0.0.1:7860>). The app lets you:
 * **preview** the starting position live, with rank/file coordinates, a spec
   strip (board, square, fill, tallest piece, thickness) and per-piece thumbnails
   labelled with their millimetre dimensions;
-* **download** a ZIP with `svg/`, `dxf/`, and (optionally) `step/` + `stl/`.
+* get a **3D-printing material estimate** as a PDF (see below);
+* **download** a ZIP with `svg/`, `dxf/`, the estimate PDF and (optionally)
+  `step/` + `stl/`.
 
 The preview follows the active Gradio theme in light and dark mode, and reflows
 down to phone widths.
 
 `--port 7861` picks a port and `--share` creates a public link. Installing the
 package also provides a `chess2d-app` console script.
+
+## 3D-printing material estimate
+
+Under **3D printing estimate** in the app you pick a material, filament
+diameter, price per kg, layer height and infill, then hit **Material report
+(PDF)** — it returns in about a second, and the same PDF is bundled into the
+main ZIP.
+
+The document tells you how much material a set needs and shows the working, so
+you can redo it for your own printer:
+
+| | |
+| --- | --- |
+| Page 1 | headline volume/mass/filament/cost, your configuration and print settings, per-piece table |
+| Page 2 | every formula with your numbers substituted, plus a comparison across all materials |
+| Page 3 | the board (a very different scale), and practical printing notes |
+
+Areas and perimeters are measured from the **exact exported geometry**, so the
+quoted volume equals the STL you download. Two caveats the report states itself:
+
+* Figures are given as a **range** — the sparse-infill lower bound and the fully
+  solid upper bound. These silhouettes are narrow, so perimeter walls alone
+  cover 27–54 % of a cross-section and the truth sits near the top of the range;
+  buy for the solid figure plus a margin.
+* It is a planning aid, not a slicer. Slice the STLs for a real number.
+
+For a default set that comes to roughly **25 cm³ ≈ 31 g of PLA ≈ 10 m** of
+1.75 mm filament for all 32 pieces. The board alone is ~595 g, which is why the
+report suggests cutting it from sheet material instead.
+
+The maths lives in [`estimate.py`](src/chess2d/estimate.py) and is usable
+directly:
+
+```python
+from chess2d import ChessStyle, PrintSettings, estimate_set
+
+estimate = estimate_set(ChessStyle(), PrintSettings(material="PETG", infill=0.3))
+print(estimate.mass_range_g(), estimate.budget_mass_g())
+```
 
 ## Previewing
 
@@ -165,13 +206,15 @@ src/chess2d/
 ├── board.py        make_board, make_square, square_center, colour parity
 ├── assembly.py     place_piece, make_initial_position, BACK_RANK
 ├── export.py       SVG / DXF / STEP / STL writers + generate_all
+├── estimate.py     3D-printing material maths (volumes, mass, filament, cost)
+├── report.py       the material-estimate PDF (needs the `app` extra)
 ├── preview.py      optional ocp_vscode helpers
 └── gradio_app.py   the interactive web configurator
 scripts/            generate_all.py, preview_set.py, app.py,
                     build_release.py, deploy_space.py
 space/              Hugging Face Space payload (app.py, requirements, README)
 tests/              test_pieces.py, test_board.py, test_layout.py,
-                    test_app.py, test_deploy_space.py
+                    test_estimate.py, test_app.py, test_deploy_space.py
 ```
 
 ## Hugging Face Space (CI)

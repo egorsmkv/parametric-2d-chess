@@ -17,6 +17,8 @@ BOARD_LABELS = list(gradio_app._BOARD_CHOICES.keys())
 FIGURE_LABELS = list(gradio_app._FIGURE_CHOICES.keys())
 MEDIUM_BOARD = gradio_app._default(gradio_app._BOARD_CHOICES, "medium")
 MEDIUM_FIGURE = gradio_app._default(gradio_app._FIGURE_CHOICES, "medium")
+# material, filament diameter, price/kg, layer height, infill %
+PRINT_ARGS = ("PLA", 1.75, 25.0, 0.2, 15)
 
 
 @pytest.mark.parametrize("mode_label", MODE_LABELS)
@@ -59,7 +61,9 @@ def test_preview_honours_figure_size_presets(figure_label: str) -> None:
 def test_build_files_produces_downloadable_zip() -> None:
     # Vector formats only keeps the test fast; solids are covered elsewhere.
     archive = Path(
-        gradio_app.build_files(MODE_LABELS[0], MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, False)
+        gradio_app.build_files(
+            MODE_LABELS[0], MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, False, *PRINT_ARGS
+        )
     )
     assert archive.exists() and archive.suffix == ".zip"
     # The filename records the chosen configuration.
@@ -69,6 +73,48 @@ def test_build_files_produces_downloadable_zip() -> None:
     assert any(n.endswith(".dxf") for n in names)
 
 
+def test_zip_carries_the_printing_report() -> None:
+    archive = Path(
+        gradio_app.build_files(
+            MODE_LABELS[0], MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, False, *PRINT_ARGS
+        )
+    )
+    with zipfile.ZipFile(archive) as bundle:
+        assert gradio_app.REPORT_FILENAME in bundle.namelist()
+        assert bundle.read(gradio_app.REPORT_FILENAME).startswith(b"%PDF-")
+
+
+def test_report_button_returns_a_pdf() -> None:
+    path = Path(
+        gradio_app.build_report(
+            MODE_LABELS[0], MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, *PRINT_ARGS
+        )
+    )
+    assert path.suffix == ".pdf"
+    data = path.read_bytes()
+    assert data.startswith(b"%PDF-")
+    assert len(data) > 5_000
+    # More than a cover page: the formulae and notes follow.
+    assert data.count(b"/Type /Page") - data.count(b"/Type /Pages") >= 2
+
+
+def test_report_reflects_the_chosen_material() -> None:
+    # A denser material must not silently produce an identical document.
+    light = Path(gradio_app.build_report(
+        MODE_LABELS[0], MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, "ABS", 1.75, 25.0, 0.2, 15
+    )).read_bytes()
+    heavy = Path(gradio_app.build_report(
+        MODE_LABELS[0], MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, "PETG", 1.75, 25.0, 0.2, 15
+    )).read_bytes()
+    assert light != heavy
+
+
+def test_print_settings_converts_the_infill_percentage() -> None:
+    settings = gradio_app._print_settings("PLA", 1.75, 25.0, 0.2, 45)
+    assert settings.infill == pytest.approx(0.45)
+    assert settings.material == "PLA"
+
+
 def test_preview_reuses_one_workspace() -> None:
     # Re-rendering must not leak a new temp directory per call: the session
     # workspace only ever holds the fixed set of scratch subdirectories.
@@ -76,7 +122,7 @@ def test_preview_reuses_one_workspace() -> None:
         gradio_app.build_preview(label, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3)
     subdirs = {p.name for p in gradio_app._workspace().iterdir()}
     assert "preview" in subdirs
-    assert subdirs <= {"preview", "build", "zip"}
+    assert subdirs <= {"preview", "build", "zip", "report"}
 
 
 def test_demo_builds() -> None:
