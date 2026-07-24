@@ -12,6 +12,12 @@ dependencies = [
 preview = [
     "ocp-vscode>=2.0.0",
 ]
+app = [
+    "gradio>=4.44",
+]
+
+[project.scripts]
+chess2d-app = "chess2d.gradio_app:main"
 
 [dependency-groups]
 dev = [

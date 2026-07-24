@@ -69,6 +69,26 @@ generate_all(style=ChessStyle(figure_mode=FigureMode.FUSED))
 The same `mode` argument is available directly on `make_piece`,
 `make_piece_solid` and `make_piece_geometry`.
 
+## Web app (Gradio)
+
+An interactive configurator: pick the figure form, tweak dimensions, watch the
+board preview update live, and download all generated files as a ZIP.
+
+```bash
+uv sync --extra app
+python scripts/app.py
+```
+
+Then open the printed URL (default <http://127.0.0.1:7860>). The app lets you:
+
+* choose the **figure form** — two-sided, fused, or single-sided;
+* set **square size**, **piece thickness** and **board thickness**;
+* **preview** the full starting position plus all six piece silhouettes, live;
+* **download** a ZIP with `svg/`, `dxf/`, and (optionally) `step/` + `stl/`.
+
+`--port 7861` picks a port and `--share` creates a public link. Installing the
+package also provides a `chess2d-app` console script.
+
 ## Previewing
 
 With the optional viewer installed (`uv sync --extra preview`):
@@ -115,14 +135,16 @@ bundled into a tunable [`ChessStyle`](src/chess2d/parameters.py) dataclass.
 
 ```
 src/chess2d/
-├── parameters.py   dimensions, enums (PieceType, Side), ChessStyle
-├── geometry.py     low-level helpers (rounded_bar, symmetric, outline, scale)
+├── parameters.py   dimensions, enums (PieceType, Side, FigureMode), ChessStyle
+├── geometry.py     low-level helpers (turned profiles, two_sided, fused_two_sided)
 ├── pieces.py       the six make_* silhouette generators + dispatcher + solids
 ├── board.py        make_board, make_square, square_center, colour parity
 ├── assembly.py     place_piece, make_initial_position, BACK_RANK
-└── preview.py      optional ocp_vscode helpers
-scripts/            generate_all.py, preview_set.py
-tests/              test_pieces.py, test_board.py, test_layout.py
+├── export.py       SVG / DXF / STEP / STL writers + generate_all
+├── preview.py      optional ocp_vscode helpers
+└── gradio_app.py   the interactive web configurator
+scripts/            generate_all.py, preview_set.py, app.py
+tests/              test_pieces.py, test_board.py, test_layout.py, test_app.py
 ```
 
 ## Development
