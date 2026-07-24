@@ -162,9 +162,42 @@ src/chess2d/
 ├── export.py       SVG / DXF / STEP / STL writers + generate_all
 ├── preview.py      optional ocp_vscode helpers
 └── gradio_app.py   the interactive web configurator
-scripts/            generate_all.py, preview_set.py, app.py
-tests/              test_pieces.py, test_board.py, test_layout.py, test_app.py
+scripts/            generate_all.py, preview_set.py, app.py,
+                    build_release.py, deploy_space.py
+space/              Hugging Face Space payload (app.py, requirements, README)
+tests/              test_pieces.py, test_board.py, test_layout.py,
+                    test_app.py, test_deploy_space.py
 ```
+
+## Hugging Face Space (CI)
+
+[`.github/workflows/deploy-space.yml`](.github/workflows/deploy-space.yml) runs
+on **every commit**: it lints, type-checks and runs the full test suite (with the
+`app` extra, so the Gradio tests actually execute), then — only for commits on
+`main` that passed — deploys the app to a Hugging Face Space.
+
+The Space payload is assembled from [`space/`](space/) (entrypoint, pinned
+requirements and the Space `README.md` with its HF frontmatter) plus a copy of
+the `chess2d` package, so the Space runs without the source tree.
+
+**One-time setup**, both on the GitHub repository:
+
+* add a secret `HF_TOKEN` — a Hugging Face access token with **write** scope;
+* optionally add a variable `HF_SPACE_ID` (defaults to
+  `egorsmkv/parametric-2d-chess`) to target a different Space.
+
+Without `HF_TOKEN` the deploy job is skipped with a warning — tests still run.
+The Space is created on the first successful deploy.
+
+Test the packaging locally, or deploy by hand:
+
+```bash
+python scripts/deploy_space.py --space-id egorsmkv/parametric-2d-chess --dry-run
+```
+
+Keep `sdk_version` in [`space/README.md`](space/README.md) in sync with the
+gradio pin in [`space/requirements.txt`](space/requirements.txt) — a test
+enforces this.
 
 ## Releases (CI)
 
