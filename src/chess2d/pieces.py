@@ -33,16 +33,17 @@ from build123d import (
 from .geometry import (
     centered,
     disc,
+    fused_two_sided,
     outline_ring,
     outline_wires,
     rounded_bar,
     scaled,
     two_sided,
 )
-from .parameters import PIECE_THICKNESS, SQUARE_SIZE, PieceType
+from .parameters import PIECE_THICKNESS, SQUARE_SIZE, FigureMode, PieceType
 
-# Two-sided figures are scaled so each nearly fills its square (a small margin
-# keeps neighbouring ranks from touching).
+# Two-sided / fused figures are scaled so each nearly fills its square (a small
+# margin keeps neighbouring ranks from touching).
 TWO_SIDED_FILL_HEIGHT: float = SQUARE_SIZE * 0.94
 
 # --------------------------------------------------------------------------
@@ -289,30 +290,25 @@ _GENERATORS = {
 }
 
 
-def _fit_two_sided(sketch: Sketch) -> Sketch:
-    """Double a single figure into a two-sided token that nearly fills a square.
-
-    Each piece is scaled individually so its two-sided figure fills the square to
-    ``TWO_SIDED_FILL_HEIGHT`` -- maximising how large and legible the pieces look
-    on the board (every piece is sized to the same generous height).
-    """
-    doubled = two_sided(sketch)
-    height = doubled.bounding_box().size.Y
-    return scaled(doubled, TWO_SIDED_FILL_HEIGHT / height)
+def _fit_to_square(figure: Sketch) -> Sketch:
+    """Scale a composed figure so it nearly fills a square (max legibility)."""
+    height = figure.bounding_box().size.Y
+    return scaled(figure, TWO_SIDED_FILL_HEIGHT / height)
 
 
 def make_piece(
     piece_type: PieceType,
     scale: float = 1.0,
     mirrored: bool = False,
-    two_sided_figure: bool = True,
+    mode: FigureMode = FigureMode.TWO_SIDED,
 ) -> Sketch:
     """Unified dispatcher returning the filled 2D face for any piece type.
 
-    By default the figure is *two-sided*: the silhouette is fused with its
-    vertical mirror so it reads upright from both edges of the board (matching a
-    flat token that both players view). Pass ``two_sided_figure=False`` for the
-    plain single-sided silhouette.
+    ``mode`` selects how the figure is composed (see :class:`FigureMode`):
+    ``TWO_SIDED`` (default) stacks the figure with its 180-deg rotation so each
+    player reads their end; ``FUSED`` merges the identifying tops into one
+    compact point-symmetric figure that reads the same for everyone; ``SINGLE``
+    is the plain one-orientation silhouette.
     """
     if piece_type is PieceType.KNIGHT:
         sketch = make_knight(scale=1.0, facing="right" if mirrored else "left")
@@ -320,8 +316,10 @@ def make_piece(
         sketch = _GENERATORS[piece_type](scale=1.0)
         if mirrored:
             sketch = centered(mirror(sketch, about=Plane.YZ))
-    if two_sided_figure:
-        sketch = _fit_two_sided(sketch)
+    if mode is FigureMode.TWO_SIDED:
+        sketch = _fit_to_square(two_sided(sketch))
+    elif mode is FigureMode.FUSED:
+        sketch = _fit_to_square(fused_two_sided(sketch))
     return scaled(sketch, scale)
 
 
@@ -341,12 +339,10 @@ def make_piece_geometry(
     outline_width: float = 1.4,
     with_solid: bool = False,
     thickness: float = PIECE_THICKNESS,
-    two_sided_figure: bool = True,
+    mode: FigureMode = FigureMode.TWO_SIDED,
 ) -> PieceGeometry:
     """Bundle the fill face, an outline and an optional thin solid for a piece."""
-    fill = make_piece(
-        piece_type, scale=scale, mirrored=mirrored, two_sided_figure=two_sided_figure
-    )
+    fill = make_piece(piece_type, scale=scale, mirrored=mirrored, mode=mode)
     ring = outline_ring(fill, outline_width)
     outline: Shape = ring if ring is not None else outline_wires(fill)
     solid = extrude(fill, amount=thickness) if with_solid else None
@@ -357,8 +353,8 @@ def make_piece_solid(
     piece_type: PieceType,
     thickness: float = PIECE_THICKNESS,
     scale: float = 1.0,
-    two_sided_figure: bool = True,
+    mode: FigureMode = FigureMode.TWO_SIDED,
 ) -> Part:
     """Extrude a piece silhouette into a thin flat token (spec section 20)."""
-    sketch = make_piece(piece_type, scale=scale, two_sided_figure=two_sided_figure)
+    sketch = make_piece(piece_type, scale=scale, mode=mode)
     return extrude(sketch, amount=thickness)

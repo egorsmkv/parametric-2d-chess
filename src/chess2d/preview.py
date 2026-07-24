@@ -19,6 +19,7 @@ from .parameters import (
     PIECE_FILL_Z,
     WHITE_FILL_COLOR,
     ChessStyle,
+    FigureMode,
     PieceType,
 )
 from .pieces import make_piece
@@ -93,10 +94,10 @@ def preview_composition(style: ChessStyle | None = None) -> None:
     )
 
 
-def preview_pieces(two_sided: bool = True) -> None:
+def preview_pieces(mode: FigureMode = FigureMode.TWO_SIDED) -> None:
     """Show the six piece silhouettes side by side."""
     shapes = [
-        Pos((i - 2.5) * 45.0, 0) * make_piece(pt, two_sided_figure=two_sided)
+        Pos((i - 2.5) * 45.0, 0) * make_piece(pt, mode=mode)
         for i, pt in enumerate(PieceType)
     ]
     _show(*shapes, names=[pt.value for pt in PieceType])

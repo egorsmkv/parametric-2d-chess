@@ -39,6 +39,23 @@ class Side(Enum):
     BLACK = "black"
 
 
+class FigureMode(Enum):
+    """How a piece figure is composed.
+
+    * ``SINGLE`` -- a plain one-orientation silhouette (upside-down for the
+      opponent).
+    * ``TWO_SIDED`` -- the full figure plus a 180-deg-rotated copy stacked
+      base-to-base and joined by a border neck; each player reads their end.
+    * ``FUSED`` -- only the identifying top of the piece, merged with its
+      180-deg rotation into one compact, point-symmetric figure that reads the
+      same way for every player.
+    """
+
+    SINGLE = "single"
+    TWO_SIDED = "two_sided"
+    FUSED = "fused"
+
+
 # --------------------------------------------------------------------------
 # Master dimensions (see spec section 5)
 # --------------------------------------------------------------------------
@@ -114,10 +131,8 @@ class ChessStyle:
     piece_scale: float = 1.0
     piece_thickness: float = PIECE_THICKNESS
     board_thickness: float = BOARD_THICKNESS
-    # When True (default) every piece is a two-sided figure (fused with its
-    # vertical mirror) that reads upright from both edges of the board. When
-    # False the plain single-sided silhouette is used.
-    two_sided: bool = True
+    # How each piece figure is composed (see :class:`FigureMode`).
+    figure_mode: FigureMode = FigureMode.TWO_SIDED
 
 
 DEFAULT_STYLE = ChessStyle()

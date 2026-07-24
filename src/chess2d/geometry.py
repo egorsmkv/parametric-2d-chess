@@ -26,6 +26,11 @@ from build123d import (
 TWO_SIDED_BORDER: float = 2.5
 TWO_SIDED_NECK_FRACTION: float = 0.45
 
+# Fused figure: keep this top fraction of the piece (the identifying head/crown)
+# and merge it with its 180-deg-rotated copy, overlapping by ``FUSED_OVERLAP``.
+FUSED_KEEP_FRACTION: float = 0.58
+FUSED_OVERLAP: float = 1.5
+
 
 def rounded_bar(
     width: float,
@@ -84,6 +89,30 @@ def two_sided(
     neck_width = max(box.size.X * neck_fraction, 2.0)
     neck = Rectangle(neck_width, border + 2.0)
     return top + bottom + neck
+
+
+def fused_two_sided(
+    sketch: Sketch,
+    keep: float = FUSED_KEEP_FRACTION,
+    overlap: float = FUSED_OVERLAP,
+) -> Sketch:
+    """Fuse the identifying top of a piece with its 180-deg rotation into one figure.
+
+    Only the top ``keep`` fraction of the piece -- the part that identifies it
+    (head, crown, mitre, horse head, crenellations) -- is kept, then merged with
+    a 180-deg-rotated copy of itself so the emblem points toward *both* players.
+    The two copies meet and overlap in the middle, producing a single compact,
+    point-symmetric figure that reads the same from either side of the board and
+    looks like one coherent piece rather than a tall stacked pair.
+    """
+    box = sketch.bounding_box()
+    y_cut = box.min.Y + box.size.Y * (1.0 - keep)
+    # Keep everything above the cut line.
+    band = Pos(0, y_cut + box.size.Y * 2) * Rectangle(box.size.X * 3, box.size.Y * 4)
+    top = sketch & band
+    top = Pos(0, -y_cut - overlap) * top   # drop the cut edge just below centre
+    bottom = Rot(0, 0, 180) * top
+    return centered(top + bottom)
 
 
 def centered(sketch: Sketch) -> Sketch:

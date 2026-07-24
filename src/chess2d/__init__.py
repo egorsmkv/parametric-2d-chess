@@ -30,6 +30,7 @@ from .parameters import (
     PLAYING_SIZE,
     SQUARE_SIZE,
     ChessStyle,
+    FigureMode,
     PieceType,
     Side,
 )
@@ -55,6 +56,7 @@ __all__ = [
     "BoardGeometry",
     "ChessComposition",
     "ChessStyle",
+    "FigureMode",
     "PieceGeometry",
     "PieceType",
     "Side",

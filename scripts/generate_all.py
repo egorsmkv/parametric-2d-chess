@@ -3,10 +3,13 @@
 
 Usage::
 
-    python scripts/generate_all.py [output_dir] [--no-solids] [--single-sided]
+    python scripts/generate_all.py [output_dir] [--no-solids] [--single-sided|--fused]
 
-By default pieces are two-sided figures (readable from both edges of the board).
-Pass ``--single-sided`` for plain single-sided silhouettes.
+Figure mode (default two-sided):
+
+* ``--single-sided`` -- plain one-orientation silhouettes.
+* ``--fused``        -- compact point-symmetric figures readable the same way by
+  every player.
 """
 
 from __future__ import annotations
@@ -18,19 +21,24 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from chess2d.export import generate_all  # noqa: E402
-from chess2d.parameters import ChessStyle  # noqa: E402
+from chess2d.parameters import ChessStyle, FigureMode  # noqa: E402
 
 
 def main(argv: list[str]) -> int:
     args = [a for a in argv if not a.startswith("-")]
     with_solids = "--no-solids" not in argv
-    two_sided = "--single-sided" not in argv
+    if "--single-sided" in argv:
+        mode = FigureMode.SINGLE
+    elif "--fused" in argv:
+        mode = FigureMode.FUSED
+    else:
+        mode = FigureMode.TWO_SIDED
     output_dir = args[0] if args else "output"
 
-    style = ChessStyle(two_sided=two_sided)
+    style = ChessStyle(figure_mode=mode)
     print(
         f"Generating chess set into {output_dir!r} "
-        f"(solids={with_solids}, two_sided={two_sided}) ..."
+        f"(solids={with_solids}, figure_mode={mode.value}) ..."
     )
     written = generate_all(output_dir=output_dir, style=style, with_solids=with_solids)
     for path in written:

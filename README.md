@@ -32,35 +32,39 @@ output/
 Flags:
 
 * `--no-solids` — skip the STEP/STL extrusions.
-* `--single-sided` — plain single-sided silhouettes instead of the default
-  two-sided figures.
+* `--single-sided` — plain one-orientation silhouettes.
+* `--fused` — compact point-symmetric figures readable the same way by everyone.
 * a positional argument sets the output directory.
 
 ```bash
-python scripts/generate_all.py my_output --no-solids --single-sided
+python scripts/generate_all.py my_output --no-solids --fused
 ```
 
 `python build_model.py` is a root-level shortcut for the same generation step.
 
-## Two-sided figures
+## Figure modes
 
-By default every piece is a **two-sided figure**, like a two-headed playing
-card: the top half faces the near player and the bottom half is the same figure
-rotated 180° so the opposite player sees it upright with correct left-right
-handedness (matters for the knight). A **border** separates the two halves, and
-they are joined through a central neck that bridges it, so each figure stays a
-**single connected piece** — printable / laser-cuttable as one element. No piece
-is ever upside-down for either player, and the two sides are told apart only by
-fill colour. This is controlled by the `two_sided` flag on
-[`ChessStyle`](src/chess2d/parameters.py):
+Every piece can be composed three ways, chosen with the `figure_mode` field on
+[`ChessStyle`](src/chess2d/parameters.py) (a [`FigureMode`](src/chess2d/parameters.py)):
+
+| Mode | Look | For whom it reads upright |
+| --- | --- | --- |
+| `SINGLE` | plain one-orientation silhouette | the near player only (upside-down for the opponent) |
+| `TWO_SIDED` *(default)* | full figure + its 180° rotation stacked base-to-base, joined by a border neck | each player reads their own end |
+| `FUSED` | only the identifying top (head/crown/mitre) merged with its 180° rotation into one compact figure | **everyone** — it is point-symmetric, so it looks the same from every side |
+
+All three are **single connected pieces** — printable / laser-cuttable as one
+element — and the two colours are told apart by fill only. `FUSED` fills the
+square best (it isn't stretched tall like `TWO_SIDED`) while still being legible
+to both players.
 
 ```python
-from chess2d import ChessStyle, generate_all
+from chess2d import ChessStyle, FigureMode, generate_all
 
-generate_all(style=ChessStyle(two_sided=False))   # single-sided silhouettes
+generate_all(style=ChessStyle(figure_mode=FigureMode.FUSED))
 ```
 
-The same `two_sided_figure` flag is available directly on `make_piece`,
+The same `mode` argument is available directly on `make_piece`,
 `make_piece_solid` and `make_piece_geometry`.
 
 ## Previewing

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from build123d import CenterOf
 
-from chess2d.parameters import PIECE_DIMS, SQUARE_SIZE, PieceType
+from chess2d.parameters import PIECE_DIMS, SQUARE_SIZE, FigureMode, PieceType
 from chess2d.pieces import make_knight, make_piece, make_piece_geometry, make_piece_solid
 
 ALL_PIECES = list(PieceType)
@@ -81,7 +81,7 @@ def test_piece_within_target_dims(piece_type: PieceType) -> None:
     dims = PIECE_DIMS[piece_type]
     # The single-sided silhouette stays within a small tolerance of the spec
     # targets (the two-sided figure is intentionally taller and re-scaled).
-    box = make_piece(piece_type, two_sided_figure=False).bounding_box()
+    box = make_piece(piece_type, mode=FigureMode.SINGLE).bounding_box()
     assert dims.width + 2.0 >= box.size.X
     assert dims.height + 2.0 >= box.size.Y
 
@@ -114,17 +114,32 @@ def test_thin_solid_extrusion(piece_type: PieceType) -> None:
 
 
 @pytest.mark.parametrize("piece_type", ALL_PIECES)
-def test_two_sided_flag_changes_geometry(piece_type: PieceType) -> None:
-    single = make_piece(piece_type, two_sided_figure=False)
-    double = make_piece(piece_type, two_sided_figure=True)
+def test_figure_modes_produce_valid_geometry(piece_type: PieceType) -> None:
+    single = make_piece(piece_type, mode=FigureMode.SINGLE)
+    double = make_piece(piece_type, mode=FigureMode.TWO_SIDED)
+    fused = make_piece(piece_type, mode=FigureMode.FUSED)
     single_box = single.bounding_box()
     double_box = double.bounding_box()
-    # The two-sided figure is a single connected face (halves joined by the neck),
-    # taller than the single silhouette and symmetric top-to-bottom.
+    # Two-sided and fused figures are single connected faces, symmetric
+    # top-to-bottom, and different geometry from the plain silhouette.
     assert len(double.faces()) == 1
+    assert len(fused.faces()) == 1
     assert abs(double_box.min.Y + double_box.max.Y) < 1e-6
+    assert abs(fused.bounding_box().min.Y + fused.bounding_box().max.Y) < 1e-6
     assert abs(double_box.size.Y - single_box.size.Y) > 0.5
-    # Both still fit inside a square.
-    for box in (single_box, double_box):
+    # Every mode fits inside a square.
+    for figure in (single, double, fused):
+        box = figure.bounding_box()
         assert box.size.X <= SQUARE_SIZE
         assert box.size.Y <= SQUARE_SIZE
+
+
+@pytest.mark.parametrize("piece_type", ALL_PIECES)
+def test_fused_figure_is_point_symmetric(piece_type: PieceType) -> None:
+    # A fused figure reads the same for every player: it is invariant under a
+    # 180-deg rotation, so its area centroid sits on the origin (within the
+    # numerical noise of the boolean union).
+    fused = make_piece(piece_type, mode=FigureMode.FUSED)
+    centroid = fused.faces()[0].center(CenterOf.MASS)
+    assert abs(centroid.X) < 0.1
+    assert abs(centroid.Y) < 0.1
