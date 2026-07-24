@@ -44,8 +44,17 @@ def test_payload_bundles_the_package(payload: Path) -> None:
     assert (package / "__init__.py").is_file()
     assert (package / "gradio_app.py").is_file()
     # Everything the app imports must ship with it.
-    for module in ("assembly", "board", "export", "geometry", "parameters", "pieces"):
+    for module in (
+        "assembly", "board", "estimate", "export", "geometry",
+        "parameters", "pieces", "report",
+    ):
         assert (package / f"{module}.py").is_file(), f"chess2d/{module}.py missing"
+
+    # The piece styles live in a subpackage; copytree must have recursed into it.
+    styles = package / "styles"
+    assert (styles / "__init__.py").is_file(), "chess2d/styles/ missing from payload"
+    for style in ("staunton", "regence", "selenus", "bauhaus", "glyph"):
+        assert (styles / f"{style}.py").is_file(), f"chess2d/styles/{style}.py missing"
 
 
 def test_space_readme_declares_the_gradio_sdk(payload: Path) -> None:

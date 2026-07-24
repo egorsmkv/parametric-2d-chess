@@ -25,10 +25,12 @@ from .parameters import (
     LIGHT_SQUARE_COLOR,
     ChessStyle,
     FigureMode,
+    PieceStyle,
     PieceType,
 )
 from .pieces import FIGURE_FILL_FRACTION
 from .report import write_material_report
+from .styles import STYLES
 
 #: Name the report carries inside the generated archive.
 REPORT_FILENAME = "3d_printing_estimate.pdf"
@@ -39,6 +41,11 @@ _MODES: dict[str, FigureMode] = {
     "Fused": FigureMode.FUSED,
     "Single-sided": FigureMode.SINGLE,
 }
+#: Piece styles, labelled from the registry.
+_STYLE_CHOICES: dict[str, PieceStyle] = {
+    spec.label: style for style, spec in STYLES.items()
+}
+
 # Size presets. Labels stay terse -- the exact millimetres land in the preview's
 # spec strip, where there is room for them.
 _BOARD_CHOICES: dict[str, tuple[str, float]] = {
@@ -90,11 +97,12 @@ def _fresh_dir(name: str) -> Path:
     return path
 
 
-def _style(mode_label: str, board_label: str, figure_label: str,
+def _style(mode_label: str, style_label: str, board_label: str, figure_label: str,
            piece_thickness: float, board_thickness: float) -> ChessStyle:
     _, square_size = _BOARD_CHOICES[board_label]
     _, piece_scale = _FIGURE_CHOICES[figure_label]
     return ChessStyle(
+        piece_style=_STYLE_CHOICES[style_label],
         square_size=square_size,
         piece_scale=piece_scale,
         piece_thickness=float(piece_thickness),
@@ -209,10 +217,14 @@ def _css_rgb(color: tuple[float, float, float]) -> str:
     return f"rgb({red},{green},{blue})"
 
 
-def build_preview(mode_label: str, board_label: str, figure_label: str,
-                  piece_thickness: float, board_thickness: float) -> str:
+def build_preview(mode_label: str, style_label: str, board_label: str,
+                  figure_label: str, piece_thickness: float,
+                  board_thickness: float) -> str:
     """Render the board and the six piece silhouettes as inline SVG for preview."""
-    style = _style(mode_label, board_label, figure_label, piece_thickness, board_thickness)
+    style = _style(
+        mode_label, style_label, board_label, figure_label,
+        piece_thickness, board_thickness,
+    )
     tmp = _fresh_dir("preview")
 
     composition = make_initial_position(style)
@@ -243,8 +255,10 @@ def build_preview(mode_label: str, board_label: str, figure_label: str,
     ranks = "".join(f"<span>{rank}</span>" for rank in range(8, 0, -1))
     files = "".join(f"<span>{file}</span>" for file in _FILES)
 
+    spec = STYLES[style.piece_style]
     playing = style.square_size * 8
     specs = "".join((
+        _chip("Style", spec.label),
         _chip("Board", f"{playing:.0f} × {playing:.0f} mm"),
         _chip("Square", f"{style.square_size:.0f} mm"),
         _chip("Figures", f"{style.piece_scale * FIGURE_FILL_FRACTION:.0%} of square"),
@@ -261,6 +275,7 @@ def build_preview(mode_label: str, board_label: str, figure_label: str,
         f'<div class="c2-files">{files}</div>'
         "</div>"
         f'<div class="c2-specs">{specs}</div>'
+        f'<p class="c2-note"><b>{spec.label}.</b> {spec.note}</p>'
         f'<p class="c2-note">{_MODE_NOTES[style.figure_mode]}</p>'
         f'<div class="c2-pieces">{"".join(cells)}</div>'
         "</div>"
@@ -271,18 +286,24 @@ def _config_stem(style: ChessStyle, board_label: str, figure_label: str) -> str:
     """Filename stem describing the chosen configuration."""
     board_name, _ = _BOARD_CHOICES[board_label]
     figure_name, _ = _FIGURE_CHOICES[figure_label]
-    return f"chess2d_{style.figure_mode.value}_board-{board_name}_figures-{figure_name}"
+    return (
+        f"chess2d_{style.piece_style.value}_{style.figure_mode.value}"
+        f"_board-{board_name}_figures-{figure_name}"
+    )
 
 
-def build_report(mode_label: str, board_label: str, figure_label: str,
-                 piece_thickness: float, board_thickness: float,
+def build_report(mode_label: str, style_label: str, board_label: str,
+                 figure_label: str, piece_thickness: float, board_thickness: float,
                  material: str, filament_diameter: float, price_per_kg: float,
                  layer_height: float, infill_percent: float) -> str:
     """Write just the 3D-printing material report and return its path.
 
     Needs no STEP/STL, so this returns in about a second.
     """
-    style = _style(mode_label, board_label, figure_label, piece_thickness, board_thickness)
+    style = _style(
+        mode_label, style_label, board_label, figure_label,
+        piece_thickness, board_thickness,
+    )
     settings = _print_settings(
         material, filament_diameter, price_per_kg, layer_height, infill_percent
     )
@@ -292,13 +313,16 @@ def build_report(mode_label: str, board_label: str, figure_label: str,
     return str(path)
 
 
-def build_files(mode_label: str, board_label: str, figure_label: str,
-                piece_thickness: float, board_thickness: float,
+def build_files(mode_label: str, style_label: str, board_label: str,
+                figure_label: str, piece_thickness: float, board_thickness: float,
                 with_solids: bool,
                 material: str, filament_diameter: float, price_per_kg: float,
                 layer_height: float, infill_percent: float) -> str:
     """Generate the full deliverable set and return a downloadable ZIP path."""
-    style = _style(mode_label, board_label, figure_label, piece_thickness, board_thickness)
+    style = _style(
+        mode_label, style_label, board_label, figure_label,
+        piece_thickness, board_thickness,
+    )
     out_dir = _fresh_dir("build")
     generate_all(output_dir=out_dir, style=style, with_solids=bool(with_solids))
 
@@ -325,6 +349,12 @@ def build_demo() -> gr.Blocks:
         with gr.Row():
             with gr.Column(scale=2, min_width=280):
                 with gr.Group():
+                    piece_style = gr.Dropdown(
+                        choices=list(_STYLE_CHOICES.keys()),
+                        value=next(iter(_STYLE_CHOICES)),
+                        label="Piece style",
+                        info="The visual design of the figures.",
+                    )
                     mode = gr.Radio(
                         choices=list(_MODES.keys()),
                         value=next(iter(_MODES)),
@@ -402,7 +432,8 @@ def build_demo() -> gr.Blocks:
         # it resolves varies between environments. Annotating the receivers as
         # Any keeps the type check stable everywhere.
         inputs: list[Any] = [
-            mode, board_size, figure_size, piece_thickness, board_thickness
+            mode, piece_style, board_size, figure_size,
+            piece_thickness, board_thickness,
         ]
         demo.load(build_preview, inputs=inputs, outputs=preview)
         for control in inputs:

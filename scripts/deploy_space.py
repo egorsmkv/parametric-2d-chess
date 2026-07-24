@@ -28,7 +28,15 @@ PACKAGE_DIR = ROOT / "src" / "chess2d"
 
 # Remote files under our control; stale ones are pruned so a renamed or deleted
 # module cannot linger in the Space and shadow the new code.
-MANAGED_PATTERNS = ["*.py", "chess2d/*", "requirements.txt", "README.md"]
+MANAGED_PATTERNS = [
+    "*.py",
+    "chess2d/*",
+    # One level deeper: the style modules live in a subpackage, and a stale
+    # copy left behind there would shadow the new code.
+    "chess2d/styles/*",
+    "requirements.txt",
+    "README.md",
+]
 
 # Never ship caches or the optional viewer glue (ocp_vscode is not installed).
 EXCLUDE = shutil.ignore_patterns("__pycache__", "*.pyc", ".DS_Store")

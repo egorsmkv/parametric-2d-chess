@@ -36,6 +36,7 @@ from .parameters import (
     ChessStyle,
     FigureMode,
 )
+from .styles import STYLES
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from reportlab.platypus import Flowable
@@ -144,6 +145,7 @@ def _configuration_rows(estimate: SetEstimate) -> list[list[str]]:
     playing = style.square_size * BOARD_SQUARES
     return [
         ["Setting", "Value"],
+        ["Piece style", STYLES[style.piece_style].label],
         ["Figure form", _MODE_NAMES[style.figure_mode]],
         ["Square size", f"{style.square_size:g} mm"],
         ["Playing surface", f"{playing:g} x {playing:g} mm"],

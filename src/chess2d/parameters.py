@@ -39,6 +39,26 @@ class Side(Enum):
     BLACK = "black"
 
 
+class PieceStyle(Enum):
+    """The visual design language of the pieces.
+
+    Independent of :class:`FigureMode`, which selects how a figure is *composed*
+    on its square rather than how it is *drawn*.
+
+    * ``STAUNTON`` -- the 1849 tournament standard; the project default.
+    * ``REGENCE`` -- early 19th-c. French: very tall, slender, small heads.
+    * ``SELENUS`` -- 17th-19th-c. German: tiered "pagoda" stacks of discs.
+    * ``BAUHAUS`` -- Hartwig, 1924: pure primitives whose shape encodes the move.
+    * ``GLYPH`` -- the flat figurine symbols used in printed chess diagrams.
+    """
+
+    STAUNTON = "staunton"
+    REGENCE = "regence"
+    SELENUS = "selenus"
+    BAUHAUS = "bauhaus"
+    GLYPH = "glyph"
+
+
 class FigureMode(Enum):
     """How a piece figure is composed.
 
@@ -155,6 +175,8 @@ class ChessStyle:
     board_thickness: float = BOARD_THICKNESS
     # How each piece figure is composed (see :class:`FigureMode`).
     figure_mode: FigureMode = FigureMode.TWO_SIDED
+    # How the pieces are drawn (see :class:`PieceStyle`).
+    piece_style: PieceStyle = PieceStyle.STAUNTON
 
 
 DEFAULT_STYLE = ChessStyle()

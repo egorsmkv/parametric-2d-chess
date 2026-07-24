@@ -11,6 +11,10 @@ Figure mode (default two-sided):
 * ``--fused``        -- compact point-symmetric figures readable the same way by
   every player.
 
+Piece style (default ``staunton``):
+
+* ``--style staunton|regence|selenus|bauhaus|glyph``
+
 Sizes (both default to ``medium``):
 
 * ``--board small|medium|large``   -- 35 / 50 / 65 mm squares.
@@ -31,6 +35,7 @@ from chess2d.parameters import (  # noqa: E402
     FIGURE_SIZE_PRESETS,
     ChessStyle,
     FigureMode,
+    PieceStyle,
 )
 
 
@@ -47,8 +52,25 @@ def _preset(argv: list[str], flag: str, presets: dict[str, float]) -> tuple[str,
     return name, presets[name]
 
 
+def _choice(argv: list[str], flag: str, enum: type[PieceStyle]) -> PieceStyle:
+    """Read ``--flag <value>`` and map it to an enum member."""
+    names = [member.value for member in enum]
+    value = names[0]
+    if flag in argv:
+        index = argv.index(flag) + 1
+        if index >= len(argv):
+            raise SystemExit(f"{flag} needs a value: {', '.join(names)}")
+        value = argv[index]
+    try:
+        return enum(value)
+    except ValueError:
+        raise SystemExit(
+            f"unknown {flag} value {value!r}; choose from: {', '.join(names)}"
+        ) from None
+
+
 def main(argv: list[str]) -> int:
-    flag_values = {"--board", "--figures"}
+    flag_values = {"--board", "--figures", "--style"}
     skip = {argv[i + 1] for i, a in enumerate(argv) if a in flag_values and i + 1 < len(argv)}
     args = [a for a in argv if not a.startswith("-") and a not in skip]
     with_solids = "--no-solids" not in argv
@@ -58,17 +80,19 @@ def main(argv: list[str]) -> int:
         mode = FigureMode.FUSED
     else:
         mode = FigureMode.TWO_SIDED
+    piece_style = _choice(argv, "--style", PieceStyle)
     board_name, square_size = _preset(argv, "--board", BOARD_SIZE_PRESETS)
     figure_name, piece_scale = _preset(argv, "--figures", FIGURE_SIZE_PRESETS)
     output_dir = args[0] if args else "output"
 
     style = ChessStyle(
-        figure_mode=mode, square_size=square_size, piece_scale=piece_scale
+        figure_mode=mode, piece_style=piece_style,
+        square_size=square_size, piece_scale=piece_scale,
     )
     print(
         f"Generating chess set into {output_dir!r} "
-        f"(solids={with_solids}, figure_mode={mode.value}, "
-        f"board={board_name}, figures={figure_name}) ..."
+        f"(solids={with_solids}, style={piece_style.value}, "
+        f"figure_mode={mode.value}, board={board_name}, figures={figure_name}) ..."
     )
     written = generate_all(output_dir=output_dir, style=style, with_solids=with_solids)
     for path in written:

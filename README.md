@@ -36,6 +36,7 @@ Flags:
 * `--no-solids` — skip the STEP/STL extrusions.
 * `--single-sided` — plain one-orientation silhouettes.
 * `--fused` — compact point-symmetric figures readable the same way by everyone.
+* `--style staunton|regence|selenus|bauhaus|glyph` — the piece design (default `staunton`).
 * `--board small|medium|large` — 35 / 50 / 65 mm squares (default `medium`).
 * `--figures small|medium|large` — how much of a square each piece fills.
 * a positional argument sets the output directory.
@@ -86,6 +87,33 @@ generate_all(style=ChessStyle(figure_mode=FigureMode.FUSED))
 
 The same `mode` argument is available directly on `make_piece`,
 `make_piece_solid` and `make_piece_geometry`.
+
+## Piece styles
+
+Independently of the figure mode, pick the visual **design** of the pieces with
+the `piece_style` field on [`ChessStyle`](src/chess2d/parameters.py) (a
+[`PieceStyle`](src/chess2d/parameters.py)):
+
+| Style | Look |
+| --- | --- |
+| `STAUNTON` *(default)* | the 1849 tournament standard: turned bodies, flared foot, beaded collar |
+| `REGENCE` | early 19th-c. French: much taller and thinner, small heads |
+| `SELENUS` | tiered German "pagoda" stacks of discs; rank read from tier count |
+| `BAUHAUS` | Hartwig 1924: the shape states the move (square rook, diamond bishop, circle queen) |
+| `GLYPH` | the flat figurine symbols from printed chess diagrams |
+
+Every style provides all six pieces in all three figure modes and is a single
+connected face, so anything the default supports (SVG/DXF/STEP/STL, the size
+presets, the material report) works for every style. The generators live one per
+file in [`src/chess2d/styles/`](src/chess2d/styles); the
+[`STYLES`](src/chess2d/styles/__init__.py) registry maps each to its label and
+per-style composition tuning.
+
+```python
+from chess2d import ChessStyle, PieceStyle, generate_all
+
+generate_all(style=ChessStyle(piece_style=PieceStyle.BAUHAUS))
+```
 
 ## Web app (Gradio)
 
@@ -202,7 +230,8 @@ bundled into a tunable [`ChessStyle`](src/chess2d/parameters.py) dataclass.
 src/chess2d/
 ├── parameters.py   dimensions, enums (PieceType, Side, FigureMode), ChessStyle
 ├── geometry.py     low-level helpers (turned profiles, two_sided, fused_two_sided)
-├── pieces.py       the six make_* silhouette generators + dispatcher + solids
+├── pieces.py       style-aware dispatcher + thin solids
+├── styles/         one module per piece style + the STYLES registry
 ├── board.py        make_board, make_square, square_center, colour parity
 ├── assembly.py     place_piece, make_initial_position, BACK_RANK
 ├── export.py       SVG / DXF / STEP / STL writers + generate_all

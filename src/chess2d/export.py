@@ -30,6 +30,7 @@ from .parameters import (
     WHITE_FILL_COLOR,
     ChessStyle,
     FigureMode,
+    PieceStyle,
     PieceType,
 )
 from .pieces import make_piece, make_piece_solid
@@ -57,10 +58,13 @@ def export_piece_svg(
     fill: tuple[float, float, float] = WHITE_FILL_COLOR,
     mode: FigureMode = FigureMode.TWO_SIDED,
     square_size: float = SQUARE_SIZE,
+    style: PieceStyle = PieceStyle.STAUNTON,
 ) -> Path:
     """Write a single filled piece silhouette as an SVG."""
     out = _ensure_parent(path)
-    sketch = make_piece(piece_type, scale=scale, mode=mode, square_size=square_size)
+    sketch = make_piece(
+        piece_type, scale=scale, mode=mode, square_size=square_size, style=style
+    )
     exporter = ExportSVG(fit_to_stroke=True)
     exporter.add_layer("fill", fill_color=_color(fill), line_color=Color(0.15, 0.15, 0.15))
     exporter.add_shape(sketch, layer="fill")
@@ -139,10 +143,12 @@ def export_piece_step(
     scale: float = 1.0,
     mode: FigureMode = FigureMode.TWO_SIDED,
     square_size: float = SQUARE_SIZE,
+    style: PieceStyle = PieceStyle.STAUNTON,
 ) -> Path:
     out = _ensure_parent(path)
     solid = make_piece_solid(
-        piece_type, thickness=thickness, scale=scale, mode=mode, square_size=square_size
+        piece_type, thickness=thickness, scale=scale, mode=mode,
+        square_size=square_size, style=style,
     )
     export_step(solid, str(out))
     return out
@@ -155,10 +161,12 @@ def export_piece_stl(
     scale: float = 1.0,
     mode: FigureMode = FigureMode.TWO_SIDED,
     square_size: float = SQUARE_SIZE,
+    style: PieceStyle = PieceStyle.STAUNTON,
 ) -> Path:
     out = _ensure_parent(path)
     solid = make_piece_solid(
-        piece_type, thickness=thickness, scale=scale, mode=mode, square_size=square_size
+        piece_type, thickness=thickness, scale=scale, mode=mode,
+        square_size=square_size, style=style,
     )
     export_stl(solid, str(out))
     return out
@@ -170,13 +178,15 @@ def export_flat_pieces_step(
     scale: float = 1.0,
     mode: FigureMode = FigureMode.TWO_SIDED,
     square_size: float = SQUARE_SIZE,
+    style: PieceStyle = PieceStyle.STAUNTON,
 ) -> Path:
     """All six flat-piece solids laid out in a row, as one STEP file."""
     out = _ensure_parent(path)
     solids = []
     for i, pt in enumerate(PieceType):
         solid = make_piece_solid(
-            pt, thickness=thickness, scale=scale, mode=mode, square_size=square_size
+            pt, thickness=thickness, scale=scale, mode=mode,
+            square_size=square_size, style=style,
         )
         solids.append(Pos((i - 2.5) * square_size * 0.95, 0, 0) * solid)
     compound = Compound(children=solids)
@@ -209,7 +219,8 @@ def generate_all(
     for pt in PieceType:
         written.append(export_piece_svg(
             pt, svg_dir / f"{pt.value}.svg", style.piece_scale,
-            mode=style.figure_mode, square_size=style.square_size))
+            mode=style.figure_mode, square_size=style.square_size,
+            style=style.piece_style))
     written.append(export_composition_svg(composition, svg_dir / "initial_position.svg"))
 
     # --- DXF ---
@@ -220,7 +231,7 @@ def generate_all(
     spaced = {
         pt.value: Pos((i - 2.5) * style.square_size * 0.95, 0)
         * make_piece(pt, scale=style.piece_scale, mode=style.figure_mode,
-                     square_size=style.square_size)
+                     square_size=style.square_size, style=style.piece_style)
         for i, pt in enumerate(PieceType)
     }
     written.append(export_dxf(spaced, dxf_dir / "pieces.dxf"))
@@ -244,10 +255,12 @@ def generate_all(
         written.append(board_solid_path)
         written.append(export_flat_pieces_step(
             step_dir / "flat_pieces.step", style.piece_thickness, style.piece_scale,
-            mode=style.figure_mode, square_size=style.square_size))
+            mode=style.figure_mode, square_size=style.square_size,
+            style=style.piece_style))
         for pt in PieceType:
             written.append(export_piece_stl(
                 pt, stl_dir / f"{pt.value}.stl", style.piece_thickness, style.piece_scale,
-                mode=style.figure_mode, square_size=style.square_size))
+                mode=style.figure_mode, square_size=style.square_size,
+            style=style.piece_style))
 
     return written

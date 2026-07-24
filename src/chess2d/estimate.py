@@ -268,6 +268,7 @@ def estimate_set(
             scale=style.piece_scale,
             mode=style.figure_mode,
             square_size=style.square_size,
+            style=style.piece_style,
         )
         pieces.append(
             PartEstimate(
