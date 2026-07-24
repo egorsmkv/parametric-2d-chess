@@ -31,8 +31,23 @@ def test_preview_renders_board_and_pieces(mode_label: str) -> None:
 def test_preview_honours_board_size_presets(board_label: str) -> None:
     html = gradio_app.build_preview(MODE_LABELS[0], board_label, MEDIUM_FIGURE, 2, 3)
     _, square_size = gradio_app._BOARD_CHOICES[board_label]
-    # The summary line reports the resulting board dimensions.
-    assert f"{square_size * 8:.0f} x {square_size * 8:.0f} mm board" in html
+    # The spec strip reports the resulting board dimensions.
+    assert f"{square_size * 8:.0f} × {square_size * 8:.0f} mm" in html
+    assert f"<b>{square_size:.0f} mm</b>" in html
+
+
+def test_preview_includes_board_coordinates() -> None:
+    html = gradio_app.build_preview(MODE_LABELS[0], MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3)
+    for file in "abcdefgh":
+        assert f"<span>{file}</span>" in html
+    for rank in range(1, 9):
+        assert f"<span>{rank}</span>" in html
+
+
+def test_preview_reports_piece_dimensions() -> None:
+    html = gradio_app.build_preview(MODE_LABELS[0], MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3)
+    # One "<width> × <height> mm" caption per piece, plus the board chip.
+    assert html.count("mm</small>") == 6
 
 
 @pytest.mark.parametrize("figure_label", FIGURE_LABELS)

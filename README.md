@@ -101,9 +101,14 @@ Then open the printed URL (default <http://127.0.0.1:7860>). The app lets you:
 
 * choose the **figure form** — two-sided, fused, or single-sided;
 * pick a **board size** and **figure size** — small, medium or large;
-* set **piece thickness** and **board thickness**;
-* **preview** the full starting position plus all six piece silhouettes, live;
+* set **piece thickness** and **board thickness** (under *Material & output*);
+* **preview** the starting position live, with rank/file coordinates, a spec
+  strip (board, square, fill, tallest piece, thickness) and per-piece thumbnails
+  labelled with their millimetre dimensions;
 * **download** a ZIP with `svg/`, `dxf/`, and (optionally) `step/` + `stl/`.
+
+The preview follows the active Gradio theme in light and dark mode, and reflows
+down to phone widths.
 
 `--port 7861` picks a port and `--share` creates a public link. Installing the
 package also provides a `chess2d-app` console script.

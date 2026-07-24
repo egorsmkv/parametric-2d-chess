@@ -7,6 +7,7 @@ Launch with ``python -m chess2d.gradio_app`` or the ``chess2d-app`` console scri
 from __future__ import annotations
 
 import functools
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -17,8 +18,10 @@ import gradio as gr
 from .assembly import make_initial_position
 from .export import export_composition_svg, export_piece_svg, generate_all
 from .parameters import (
+    BLACK_FILL_COLOR,
     BOARD_SIZE_PRESETS,
     FIGURE_SIZE_PRESETS,
+    LIGHT_SQUARE_COLOR,
     ChessStyle,
     FigureMode,
     PieceType,
@@ -27,20 +30,18 @@ from .pieces import FIGURE_FILL_FRACTION
 
 # Human-readable labels mapped to the underlying figure modes.
 _MODES: dict[str, FigureMode] = {
-    "Two-sided — both players (default)": FigureMode.TWO_SIDED,
-    "Fused — compact, readable by everyone": FigureMode.FUSED,
-    "Single-sided — classic (one orientation)": FigureMode.SINGLE,
+    "Two-sided": FigureMode.TWO_SIDED,
+    "Fused": FigureMode.FUSED,
+    "Single-sided": FigureMode.SINGLE,
 }
-# Size presets, labelled with the concrete millimetres they produce.
+# Size presets. Labels stay terse -- the exact millimetres land in the preview's
+# spec strip, where there is room for them.
 _BOARD_CHOICES: dict[str, tuple[str, float]] = {
-    f"{name.capitalize()} — {size:.0f} mm squares ({size * 8:.0f} mm board)": (name, size)
+    f"{name.capitalize()} · {size:.0f} mm": (name, size)
     for name, size in BOARD_SIZE_PRESETS.items()
 }
 _FIGURE_CHOICES: dict[str, tuple[str, float]] = {
-    f"{name.capitalize()} — fills {mult * FIGURE_FILL_FRACTION:.0%} of a square": (
-        name,
-        mult,
-    )
+    f"{name.capitalize()} · {mult * FIGURE_FILL_FRACTION:.0%}": (name, mult)
     for name, mult in FIGURE_SIZE_PRESETS.items()
 }
 
@@ -97,17 +98,97 @@ def _style(mode_label: str, board_label: str, figure_label: str,
     )
 
 
-def _svg_inline(path: Path, max_width: int) -> str:
-    """Read an exported SVG and make it scale responsively inside the page."""
+# Styling for the preview pane. Colours come from the active Gradio theme's own
+# CSS variables, so the preview follows light/dark mode instead of fighting it.
+_CSS = """
+.c2 { --c2-ink: var(--body-text-color, #1f2937);
+      --c2-dim: var(--body-text-color-subdued, #6b7280);
+      --c2-line: var(--border-color-primary, #e5e7eb);
+      --c2-card: var(--background-fill-secondary, #f9fafb);
+      font-variant-numeric: tabular-nums; }
+
+/* Board with rank/file coordinates around it. */
+.c2-frame { display: grid; gap: .3rem; max-width: 540px; margin: 0 auto;
+            grid-template-columns: 1.1rem minmax(0, 1fr);
+            grid-template-rows: minmax(0, 1fr) 1.1rem; }
+.c2-ranks { display: grid; grid-template-rows: repeat(8, 1fr); }
+.c2-files { display: grid; grid-template-columns: repeat(8, 1fr); }
+.c2-ranks span, .c2-files span { display: grid; place-items: center;
+            font-size: .7rem; color: var(--c2-dim); }
+.c2-board { border: 1px solid var(--c2-line); border-radius: 6px;
+            overflow: hidden; line-height: 0; }
+.c2-board svg { display: block; width: 100%; height: auto; }
+
+/* Spec strip. */
+.c2-specs { display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center;
+            margin: .85rem 0 .5rem; }
+.c2-chip { display: flex; flex-direction: column; align-items: center;
+           gap: .1rem; padding: .35rem .6rem; min-width: 5.5rem;
+           border: 1px solid var(--c2-line); border-radius: 8px;
+           background: var(--c2-card); }
+.c2-chip span { font-size: .62rem; letter-spacing: .04em; text-transform: uppercase;
+                color: var(--c2-dim); }
+.c2-chip b { font-size: .82rem; color: var(--c2-ink); white-space: nowrap; }
+
+.c2-note { max-width: 40rem; margin: 0 auto .9rem; text-align: center;
+           font-size: .8rem; line-height: 1.45; color: var(--c2-dim); }
+
+/* Piece thumbnails. */
+.c2-pieces { display: grid; gap: .5rem;
+             grid-template-columns: repeat(auto-fit, minmax(5.2rem, 1fr)); }
+.c2-piece { margin: 0; padding: .5rem .3rem .4rem; text-align: center;
+            border: 1px solid var(--c2-line); border-radius: 8px;
+            background: var(--c2-card); }
+/* Fixed board-cream backdrop: keeps the dark figures legible in either theme. */
+.c2-art { height: 5.5rem; display: grid; place-items: center; border-radius: 5px;
+          background: var(--c2-square); padding: .3rem; }
+.c2-art svg { max-height: 100%; max-width: 78%; width: auto; height: auto; }
+.c2-piece figcaption { margin-top: .35rem; font-size: .74rem;
+            text-transform: capitalize; color: var(--c2-ink); }
+.c2-piece small { display: block; font-size: .64rem; color: var(--c2-dim); }
+
+/* First-load skeleton, so the pane is never blank while geometry builds. */
+.c2-skeleton { max-width: 540px; margin: 0 auto; aspect-ratio: 1;
+               border: 1px solid var(--c2-line); border-radius: 6px;
+               display: grid; place-items: center; font-size: .8rem;
+               color: var(--c2-dim);
+               background: repeating-conic-gradient(
+                   var(--c2-card) 0% 25%, transparent 0% 50%) 0 0 / 25% 25%; }
+"""
+
+_PLACEHOLDER = (
+    '<div class="c2"><div class="c2-skeleton">Building the board…</div></div>'
+)
+
+_FILES = "abcdefgh"
+
+
+def _svg_inline(path: Path) -> str:
+    """Read an exported SVG so it can be embedded and scaled by CSS."""
     svg = path.read_text()
-    # Drop the XML declaration and force the root <svg> to scale to its container.
-    svg = svg.split("?>", 1)[-1]
-    svg = svg.replace(
-        "<svg ",
-        f'<svg style="width:100%;height:auto;max-width:{max_width}px" ',
-        1,
-    )
-    return svg
+    # Drop the XML declaration; sizing is handled by the stylesheet above.
+    return svg.split("?>", 1)[-1]
+
+
+def _svg_dims(path: Path) -> tuple[float, float]:
+    """Millimetre width/height straight from the SVG header (no re-rendering)."""
+    header = path.read_text(errors="ignore")[:400]
+
+    def value(attribute: str) -> float:
+        found = re.search(rf'\b{attribute}="([0-9.]+)mm"', header)
+        return float(found.group(1)) if found else 0.0
+
+    return value("width"), value("height")
+
+
+def _chip(label: str, value: str) -> str:
+    return f'<div class="c2-chip"><span>{label}</span><b>{value}</b></div>'
+
+
+def _css_rgb(color: tuple[float, float, float]) -> str:
+    """A 0-1 float colour from parameters.py as a CSS rgb() string."""
+    red, green, blue = (round(channel * 255) for channel in color)
+    return f"rgb({red},{green},{blue})"
 
 
 def build_preview(mode_label: str, board_label: str, figure_label: str,
@@ -120,35 +201,51 @@ def build_preview(mode_label: str, board_label: str, figure_label: str,
     board_svg = export_composition_svg(composition, tmp / "board.svg")
 
     cells = []
+    tallest = 0.0
     for piece_type in PieceType:
         piece_svg = export_piece_svg(
             piece_type, tmp / f"{piece_type.value}.svg", style.piece_scale,
+            # Dark fill on the cream backdrop below: the white set's cream fill
+            # would be nearly invisible on a light card.
+            fill=BLACK_FILL_COLOR,
             mode=style.figure_mode, square_size=style.square_size,
         )
+        width, height = _svg_dims(piece_svg)
+        tallest = max(tallest, height)
         cells.append(
-            '<figure style="margin:0;text-align:center;background:#c9bd94;'
-            'padding:6px;border-radius:6px">'
-            f'<div style="height:120px;display:flex;align-items:center;'
-            f'justify-content:center">{_svg_inline(piece_svg, 90)}</div>'
-            f'<figcaption style="color:#222;font-size:12px;text-transform:capitalize">'
-            f'{piece_type.value}</figcaption></figure>'
+            '<figure class="c2-piece">'
+            f'<div class="c2-art">{_svg_inline(piece_svg)}</div>'
+            f"<figcaption>{piece_type.value}"
+            f"<small>{width:.0f} × {height:.0f} mm</small>"
+            "</figcaption></figure>"
         )
 
+    # Coordinates: files a-h left to right, ranks 8-1 top to bottom (White at the
+    # bottom), laid out on the same 8-track grid as the squares so they line up.
+    ranks = "".join(f"<span>{rank}</span>" for rank in range(8, 0, -1))
+    files = "".join(f"<span>{file}</span>" for file in _FILES)
+
     playing = style.square_size * 8
-    summary = (
-        f"{playing:.0f} x {playing:.0f} mm board "
-        f"({style.square_size:.0f} mm squares) &middot; "
-        f"pieces fill {style.piece_scale * FIGURE_FILL_FRACTION:.0%} of a square"
-    )
-    note = _MODE_NOTES[style.figure_mode]
+    specs = "".join((
+        _chip("Board", f"{playing:.0f} × {playing:.0f} mm"),
+        _chip("Square", f"{style.square_size:.0f} mm"),
+        _chip("Figures", f"{style.piece_scale * FIGURE_FILL_FRACTION:.0%} of square"),
+        _chip("Tallest", f"{tallest:.0f} mm"),
+        _chip("Thickness", f"{style.piece_thickness:g} mm"),
+    ))
+
     return (
-        f'<div style="max-width:470px;margin:0 auto">{_svg_inline(board_svg, 470)}</div>'
-        f'<p style="text-align:center;color:#333;margin:10px 0 2px;font-size:13px">'
-        f'<b>{summary}</b></p>'
-        f'<p style="text-align:center;color:#666;margin:0 0 4px;font-size:13px">'
-        f'{note}</p>'
-        '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;'
-        f'margin-top:8px">{"".join(cells)}</div>'
+        f'<div class="c2" style="--c2-square:{_css_rgb(LIGHT_SQUARE_COLOR)}">'
+        '<div class="c2-frame">'
+        f'<div class="c2-ranks">{ranks}</div>'
+        f'<div class="c2-board">{_svg_inline(board_svg)}</div>'
+        "<div></div>"
+        f'<div class="c2-files">{files}</div>'
+        "</div>"
+        f'<div class="c2-specs">{specs}</div>'
+        f'<p class="c2-note">{_MODE_NOTES[style.figure_mode]}</p>'
+        f'<div class="c2-pieces">{"".join(cells)}</div>'
+        "</div>"
     )
 
 
@@ -174,41 +271,55 @@ def build_demo() -> gr.Blocks:
     with gr.Blocks(title="2D Chess Set Generator") as demo:
         gr.Markdown(
             "# ♟️ 2D Chess Set Generator\n"
-            "Configure the chess-piece figures, preview the board, and download "
-            "**SVG / DXF / STEP / STL** files generated with build123d."
+            "Parametric chessboard and flat piece silhouettes, generated with "
+            "[build123d](https://build123d.readthedocs.io). Configure it, watch the "
+            "board update, then download **SVG / DXF / STEP / STL**."
         )
         with gr.Row():
-            with gr.Column(scale=1):
-                gr.Markdown("### Configure")
-                mode = gr.Radio(
-                    choices=list(_MODES.keys()),
-                    value=next(iter(_MODES)),
-                    label="Figure form",
+            with gr.Column(scale=2, min_width=280):
+                with gr.Group():
+                    mode = gr.Radio(
+                        choices=list(_MODES.keys()),
+                        value=next(iter(_MODES)),
+                        label="Figure form",
+                        info="How each figure is composed on the square.",
+                    )
+                with gr.Group():
+                    board_size = gr.Radio(
+                        choices=list(_BOARD_CHOICES.keys()),
+                        value=_default(_BOARD_CHOICES, "medium"),
+                        label="Board size",
+                        info="Size of one square; the board is eight of them.",
+                    )
+                    figure_size = gr.Radio(
+                        choices=list(_FIGURE_CHOICES.keys()),
+                        value=_default(_FIGURE_CHOICES, "medium"),
+                        label="Figure size",
+                        info="How much of its square each piece fills.",
+                    )
+                with gr.Accordion("Material & output", open=False):
+                    piece_thickness = gr.Slider(
+                        1, 6, value=2, step=0.5, label="Piece thickness (mm)",
+                        info="Extrusion depth for STEP and STL.",
+                    )
+                    board_thickness = gr.Slider(
+                        1, 8, value=3, step=0.5, label="Board thickness (mm)",
+                        info="Used for the board STEP solid.",
+                    )
+                    with_solids = gr.Checkbox(
+                        value=True, label="Include 3D solids (STEP + STL)",
+                        info="Slower — untick for a quick vector-only export.",
+                    )
+                generate_btn: Any = gr.Button(
+                    "Generate files (ZIP)", variant="primary", size="lg"
                 )
-                board_size = gr.Radio(
-                    choices=list(_BOARD_CHOICES.keys()),
-                    value=_default(_BOARD_CHOICES, "medium"),
-                    label="Board size",
+                download = gr.File(label="Your download", height=120)
+                gr.Markdown(
+                    "<small>The archive holds `svg/`, `dxf/` and, with solids "
+                    "enabled, `step/` + `stl/`.</small>"
                 )
-                figure_size = gr.Radio(
-                    choices=list(_FIGURE_CHOICES.keys()),
-                    value=_default(_FIGURE_CHOICES, "medium"),
-                    label="Figure size",
-                )
-                piece_thickness = gr.Slider(
-                    1, 6, value=2, step=0.5, label="Piece thickness (mm, for STEP/STL)"
-                )
-                board_thickness = gr.Slider(
-                    1, 8, value=3, step=0.5, label="Board thickness (mm, for STEP)"
-                )
-                with_solids = gr.Checkbox(
-                    value=True, label="Include 3D solids (STEP + STL) — slower"
-                )
-                generate_btn: Any = gr.Button("Generate files (ZIP)", variant="primary")
-                download = gr.File(label="Download SVG / DXF / STEP / STL (ZIP)")
-            with gr.Column(scale=2):
-                gr.Markdown("### Preview")
-                preview = gr.HTML()
+            with gr.Column(scale=3, min_width=360):
+                preview = gr.HTML(value=_PLACEHOLDER, label="Preview")
 
         # Event listeners (.change, .click) are attached to component classes
         # dynamically by gradio, so static analysis cannot see them -- how much
@@ -230,8 +341,9 @@ def build_demo() -> gr.Blocks:
 
 
 def main(**launch_kwargs: object) -> None:
-    """Launch the app (Gradio 6 takes the theme at launch time)."""
+    """Launch the app (Gradio 6 takes the theme and CSS at launch time)."""
     launch_kwargs.setdefault("theme", gr.themes.Soft())
+    launch_kwargs.setdefault("css", _CSS)
     build_demo().launch(**launch_kwargs)  # type: ignore[arg-type]
 
 
