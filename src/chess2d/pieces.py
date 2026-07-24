@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from functools import lru_cache
 
 from build123d import (
     BuildLine,
@@ -32,7 +31,6 @@ from build123d import (
 )
 
 from .geometry import (
-    TWO_SIDED_BORDER,
     centered,
     disc,
     outline_ring,
@@ -41,7 +39,11 @@ from .geometry import (
     scaled,
     two_sided,
 )
-from .parameters import PIECE_MAX_HEIGHT, PIECE_THICKNESS, PieceType
+from .parameters import PIECE_THICKNESS, SQUARE_SIZE, PieceType
+
+# Two-sided figures are scaled so each nearly fills its square (a small margin
+# keeps neighbouring ranks from touching).
+TWO_SIDED_FILL_HEIGHT: float = SQUARE_SIZE * 0.94
 
 # --------------------------------------------------------------------------
 # Common base (spec section 10)
@@ -287,23 +289,16 @@ _GENERATORS = {
 }
 
 
-@lru_cache(maxsize=1)
-def _tallest_single_height() -> float:
-    """Native height of the tallest single-sided piece (the king)."""
-    return max(gen(scale=1.0).bounding_box().size.Y for gen in _GENERATORS.values())
-
-
 def _fit_two_sided(sketch: Sketch) -> Sketch:
-    """Double a single figure into a two-sided token.
+    """Double a single figure into a two-sided token that nearly fills a square.
 
-    Every piece is scaled by the *same* factor -- chosen so the tallest piece's
-    two-sided figure just fills a square -- so the pieces keep their realistic
-    relative heights (the king towers over the pawn) instead of each being
-    stretched independently to the same height.
+    Each piece is scaled individually so its two-sided figure fills the square to
+    ``TWO_SIDED_FILL_HEIGHT`` -- maximising how large and legible the pieces look
+    on the board (every piece is sized to the same generous height).
     """
     doubled = two_sided(sketch)
-    tallest_doubled = 2 * _tallest_single_height() + TWO_SIDED_BORDER
-    return scaled(doubled, PIECE_MAX_HEIGHT / tallest_doubled)
+    height = doubled.bounding_box().size.Y
+    return scaled(doubled, TWO_SIDED_FILL_HEIGHT / height)
 
 
 def make_piece(

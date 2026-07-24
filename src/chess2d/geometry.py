@@ -23,7 +23,7 @@ from build123d import (
 # is the vertical gap between the two halves; a connecting neck of relative width
 # ``TWO_SIDED_NECK_FRACTION`` bridges that gap so the whole figure stays a single
 # connected, printable piece.
-TWO_SIDED_BORDER: float = 4.0
+TWO_SIDED_BORDER: float = 2.5
 TWO_SIDED_NECK_FRACTION: float = 0.45
 
 
