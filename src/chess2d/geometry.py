@@ -11,11 +11,20 @@ from build123d import (
     Circle,
     Plane,
     Pos,
+    Rectangle,
     RectangleRounded,
+    Rot,
     Sketch,
     mirror,
     scale,
 )
+
+# Two-sided figure border, in native mm (before fit-scaling). ``TWO_SIDED_BORDER``
+# is the vertical gap between the two halves; a connecting neck of relative width
+# ``TWO_SIDED_NECK_FRACTION`` bridges that gap so the whole figure stays a single
+# connected, printable piece.
+TWO_SIDED_BORDER: float = 4.0
+TWO_SIDED_NECK_FRACTION: float = 0.45
 
 
 def rounded_bar(
@@ -50,19 +59,31 @@ def symmetric(half: Sketch) -> Sketch:
     return half + mirror(half, about=Plane.YZ)
 
 
-def two_sided(sketch: Sketch, overlap: float = 1.5) -> Sketch:
-    """Fuse a centred piece with its vertical mirror into a two-sided figure.
+def two_sided(
+    sketch: Sketch,
+    border: float = TWO_SIDED_BORDER,
+    neck_fraction: float = TWO_SIDED_NECK_FRACTION,
+) -> Sketch:
+    """Combine a centred piece with a 180-deg-rotated copy into a two-sided figure.
 
-    The result shows the figure upright from *both* the bottom and top edges of
-    the board: the two copies meet base-to-base in the middle with their heads
-    pointing outward (up and down). ``overlap`` merges the two bases so the
-    figure resolves to a single connected face.
+    The figure reads upright from *both* edges of the board, like a two-headed
+    playing card: the top half faces the bottom player, and the bottom half is
+    the same figure rotated 180 deg about Z (so the opposite player sees it
+    upright and with correct left-right handedness -- essential for the knight).
+
+    The two halves are separated by a ``border`` gap but joined through a central
+    neck (of relative width ``neck_fraction``) that bridges the gap, so the whole
+    figure stays a single connected piece -- printable / laser-cuttable as one
+    element. The notches on either side of the neck read as the divider border.
     """
     box = sketch.bounding_box()
-    shift = box.size.Y / 2 - overlap
+    shift = box.size.Y / 2 + border / 2
     top = Pos(0, shift) * sketch
-    bottom = mirror(top, about=Plane.XZ)  # flip Y -> base-to-base in the middle
-    return top + bottom
+    bottom = Rot(0, 0, 180) * top  # 180-deg rotation -> upright for the far player
+    # Connecting neck bridging the border gap (overlaps 1 mm into each half).
+    neck_width = max(box.size.X * neck_fraction, 2.0)
+    neck = Rectangle(neck_width, border + 2.0)
+    return top + bottom + neck
 
 
 def centered(sketch: Sketch) -> Sketch:

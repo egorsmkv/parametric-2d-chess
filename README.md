@@ -44,10 +44,14 @@ python scripts/generate_all.py my_output --no-solids --single-sided
 
 ## Two-sided figures
 
-By default every piece is a **two-sided figure**: the silhouette is fused with
-its vertical mirror (base-to-base) so it reads upright from *both* edges of the
-board — no piece is ever upside-down for either player, and the two sides are
-told apart only by fill colour. This is controlled by the `two_sided` flag on
+By default every piece is a **two-sided figure**, like a two-headed playing
+card: the top half faces the near player and the bottom half is the same figure
+rotated 180° so the opposite player sees it upright with correct left-right
+handedness (matters for the knight). A **border** separates the two halves, and
+they are joined through a central neck that bridges it, so each figure stays a
+**single connected piece** — printable / laser-cuttable as one element. No piece
+is ever upside-down for either player, and the two sides are told apart only by
+fill colour. This is controlled by the `two_sided` flag on
 [`ChessStyle`](src/chess2d/parameters.py):
 
 ```python

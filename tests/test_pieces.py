@@ -119,9 +119,10 @@ def test_two_sided_flag_changes_geometry(piece_type: PieceType) -> None:
     double = make_piece(piece_type, two_sided_figure=True)
     single_box = single.bounding_box()
     double_box = double.bounding_box()
-    # Two-sided figures are mass-symmetric top-to-bottom; single-sided ones lean
-    # toward their (heavier) base, so the flag genuinely changes the geometry.
-    assert abs(double.faces()[0].center(CenterOf.MASS).Y) < 1e-6
+    # The two-sided figure is a single connected face (halves joined by the neck),
+    # taller than the single silhouette and symmetric top-to-bottom.
+    assert len(double.faces()) == 1
+    assert abs(double_box.min.Y + double_box.max.Y) < 1e-6
     assert abs(double_box.size.Y - single_box.size.Y) > 0.5
     # Both still fit inside a square.
     for box in (single_box, double_box):

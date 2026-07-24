@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-from build123d import CenterOf
 
 from chess2d.assembly import (
     BACK_RANK,
@@ -29,7 +28,8 @@ def test_back_rank_composition() -> None:
 
 def test_initial_position_piece_counts() -> None:
     comp = make_initial_position()
-    # 16 pieces per side -> the union of 16 faces (pieces may include holes).
+    # 16 two-sided pieces per side; each is a single connected face (the two
+    # halves are joined by the central border neck) -> 16 faces per side.
     assert len(comp.white_pieces.faces()) == 16
     assert len(comp.black_pieces.faces()) == 16
 
@@ -59,24 +59,32 @@ def test_black_pieces_are_on_far_side() -> None:
 
 
 def test_both_sides_use_identical_two_sided_geometry() -> None:
-    # Two-sided figures need no per-side rotation, so a Black piece is just the
-    # White one translated: identical centroid offset relative to its square.
+    # Two-sided figures are point-symmetric (a 180-deg-rotated bottom half), so
+    # they need no per-side rotation and their bounding-box centre lands exactly
+    # on the square centre for both White and Black.
     white_knight = place_piece(make_piece(PieceType.KNIGHT), 1, 0, Side.WHITE)
     black_knight = place_piece(make_piece(PieceType.KNIGHT), 1, 7, Side.BLACK)
 
     wx, wy = square_center(1, 0)
     bx, by = square_center(1, 7)
-    wc = white_knight.faces()[0].center(CenterOf.MASS)
-    bc = black_knight.faces()[0].center(CenterOf.MASS)
-    assert pytest.approx(wc.X - wx, abs=1e-6) == bc.X - bx
-    assert pytest.approx(wc.Y - wy, abs=1e-6) == bc.Y - by
+    wb = white_knight.bounding_box()
+    bb = black_knight.bounding_box()
+    assert pytest.approx(wb.center().X, abs=1e-6) == wx
+    assert pytest.approx(wb.center().Y, abs=1e-6) == wy
+    assert pytest.approx(bb.center().X, abs=1e-6) == bx
+    assert pytest.approx(bb.center().Y, abs=1e-6) == by
+    assert pytest.approx(wb.size.X, abs=1e-6) == bb.size.X
+    assert pytest.approx(wb.size.Y, abs=1e-6) == bb.size.Y
 
 
 def test_two_sided_figure_is_vertically_symmetric() -> None:
-    # Each figure reads the same from top and bottom edges: symmetric in Y.
+    # Each figure reads the same from top and bottom edges: symmetric in Y, and
+    # is a single connected piece (printable / cuttable as one element).
     for piece_type in PieceType:
-        box = make_piece(piece_type).bounding_box()
+        figure = make_piece(piece_type)
+        box = figure.bounding_box()
         assert abs(box.min.Y + box.max.Y) < 1e-6
+        assert len(figure.faces()) == 1
 
 
 def test_pawn_ranks() -> None:
