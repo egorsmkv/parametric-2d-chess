@@ -88,13 +88,14 @@ class PieceDims:
     height: float
 
 
+# Native (single-sided) target dimensions of the turned silhouettes.
 PIECE_DIMS: dict[PieceType, PieceDims] = {
-    PieceType.PAWN: PieceDims(25.0, 38.0),
-    PieceType.ROOK: PieceDims(31.0, 40.0),
-    PieceType.KNIGHT: PieceDims(31.0, 42.0),
-    PieceType.BISHOP: PieceDims(28.0, 42.0),
-    PieceType.QUEEN: PieceDims(34.0, 44.0),
-    PieceType.KING: PieceDims(34.0, 46.0),
+    PieceType.PAWN: PieceDims(18.0, 28.0),
+    PieceType.ROOK: PieceDims(20.0, 26.0),
+    PieceType.KNIGHT: PieceDims(25.0, 43.0),
+    PieceType.BISHOP: PieceDims(18.0, 38.0),
+    PieceType.QUEEN: PieceDims(24.0, 41.0),
+    PieceType.KING: PieceDims(22.0, 43.0),
 }
 
 

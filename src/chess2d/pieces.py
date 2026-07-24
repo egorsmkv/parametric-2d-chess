@@ -1,13 +1,18 @@
 """Parametric 2D silhouettes for the six chess piece types.
 
 Every ``make_*`` function returns a :class:`~build123d.Sketch` face, authored in
-millimetres, facing +Y, centred on its local origin. The silhouettes share a
-common stylised base (spec section 10) so the set reads as one graphical family.
+millimetres, facing +Y, centred on its local origin. The symmetric pieces are
+built from smooth turned half-profiles (mirrored about the Y-axis), giving
+realistic Staunton-style silhouettes -- flared foot, base bead, concave stem,
+collar bead and a distinctive top -- while the knight is a stylised horse head
+on a turned pedestal.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from functools import lru_cache
 
 from build123d import (
     BuildLine,
@@ -16,6 +21,7 @@ from build123d import (
     Part,
     Plane,
     Pos,
+    Rectangle,
     Rot,
     Shape,
     Sketch,
@@ -26,6 +32,7 @@ from build123d import (
 )
 
 from .geometry import (
+    TWO_SIDED_BORDER,
     centered,
     disc,
     outline_ring,
@@ -44,8 +51,8 @@ from .parameters import PIECE_MAX_HEIGHT, PIECE_THICKNESS, PieceType
 def make_common_base(width: float, height: float, waist_width: float) -> Sketch:
     """Stylised lower base: wide foot, narrow waist and a small upper collar.
 
-    The parts are stacked with vertical overlap and share the centre column, so
-    the union always resolves to a single connected face.
+    Retained for API compatibility (spec section 10). The individual pieces are
+    built from smooth turned half-profiles rather than from this stacked base.
     """
     foot = rounded_bar(width, height * 0.26, 0.0)
     lower = rounded_bar(width * 0.86, height * 0.40, height * 0.18)
@@ -56,130 +63,32 @@ def make_common_base(width: float, height: float, waist_width: float) -> Sketch:
 
 
 # --------------------------------------------------------------------------
-# Individual pieces
+# Turned-profile helpers
 # --------------------------------------------------------------------------
 
 
-def make_pawn(scale: float = 1.0) -> Sketch:
-    """Compact pawn: rounded base, narrow neck and a clearly circular head."""
-    base = make_common_base(width=22.0, height=14.0, waist_width=10.0)
-    neck = rounded_bar(9.0, 15.0, 11.0)
-    shoulder = rounded_bar(15.0, 5.0, 22.0, radius=2.5)
-    head = disc(0.0, 30.5, 6.5)
-    pawn = base + neck + shoulder + head
-    return scaled(centered(pawn), scale)
+def _revolved(build_right_edges: Callable[[], None]) -> Sketch:
+    """Build a symmetric silhouette from a right-hand half profile.
 
-
-def make_rook(scale: float = 1.0) -> Sketch:
-    """Rook: tapered tower and exactly three front-view battlements."""
-    base = make_common_base(width=28.0, height=15.0, waist_width=15.0)
-    # Slightly tapered tower body.
-    with BuildSketch() as tower_sk:
-        with BuildLine():
-            Line((-12.0, 12.0), (12.0, 12.0))
-            Line((12.0, 12.0), (11.0, 30.0))
-            Line((11.0, 30.0), (-11.0, 30.0))
-            Line((-11.0, 30.0), (-12.0, 12.0))
-        make_face()
-    tower = tower_sk.sketch
-    # Wide crown platform.
-    platform = rounded_bar(28.0, 5.0, 29.0, radius=1.2)
-    # Three merlons: the central one a touch wider than the outer pair.
-    merlon_c = rounded_bar(8.0, 7.0, 33.0, radius=1.0)
-    merlon_l = Pos(-9.5, 0) * rounded_bar(6.5, 7.0, 33.0, radius=1.0)
-    merlon_r = Pos(9.5, 0) * rounded_bar(6.5, 7.0, 33.0, radius=1.0)
-    rook = base + tower + platform + merlon_c + merlon_l + merlon_r
-    return scaled(centered(rook), scale)
-
-
-def _horse_profile() -> Sketch:
-    """A single connected, left-facing horse-head silhouette (muzzle at -X)."""
-    # Closed outline walked clockwise from the bottom-right of the neck. The
-    # straight bottom segment is glued to the base and hidden by the union.
-    pts = [
-        (11.0, 12.0),   # bottom-right of neck
-        (11.5, 24.0),   # back of neck
-        (9.0, 33.0),    # crest / mane
-        (5.5, 40.0),    # poll (top of head)
-        (3.0, 42.0),    # ear tip
-        (0.5, 39.5),    # ear notch
-        (-2.5, 40.5),   # brow
-        (-7.0, 37.0),   # forehead
-        (-11.5, 33.0),  # top of muzzle
-        (-13.0, 29.0),  # nose tip (leftmost)
-        (-10.5, 26.5),  # nostril / lip
-        (-6.0, 26.0),   # mouth
-        (-3.0, 23.5),   # jaw
-        (-5.0, 18.0),   # throat
-        (-7.0, 12.0),   # bottom-left of neck
-    ]
+    ``build_right_edges`` populates a ``BuildLine`` with a closed loop that runs
+    up the right-hand side of the piece (x >= 0) and returns down the Y-axis, so
+    mirroring it about the YZ plane yields the full turned profile as one face --
+    like the silhouette of a piece turned on a lathe.
+    """
     with BuildSketch() as sk:
         with BuildLine():
-            Spline(pts)
-            Line(pts[-1], pts[0])
+            build_right_edges()
         make_face()
-    return sk.sketch
+    half = sk.sketch
+    return half + mirror(half, about=Plane.YZ)
 
 
-def make_knight(scale: float = 1.0, facing: str = "left") -> Sketch:
-    """Knight: the one strongly asymmetric piece -- a stylised horse head.
-
-    ``facing`` selects ``"left"`` (native) or ``"right"`` (mirrored about Y).
-    """
-    if facing not in ("left", "right"):
-        raise ValueError(f"facing must be 'left' or 'right', got {facing!r}")
-    base = make_common_base(width=26.0, height=14.0, waist_width=13.0)
-    horse = _horse_profile()
-    knight = base + horse
-    if facing == "right":
-        knight = mirror(knight, about=Plane.YZ)
-    return scaled(centered(knight), scale)
-
-
-def make_bishop(scale: float = 1.0) -> Sketch:
-    """Bishop: tapered body, narrow neck and a slit leaf-shaped mitre."""
-    base = make_common_base(width=25.0, height=14.0, waist_width=11.0)
-    with BuildSketch() as body_sk:
-        with BuildLine():
-            Line((-10.0, 12.0), (10.0, 12.0))
-            Line((10.0, 12.0), (6.0, 26.0))
-            Line((6.0, 26.0), (-6.0, 26.0))
-            Line((-6.0, 26.0), (-10.0, 12.0))
-        make_face()
-    body = body_sk.sketch
-    collar = rounded_bar(11.0, 3.0, 25.0, radius=1.0)
-    # Pointed leaf-shaped mitre.
-    mitre_pts = [
-        (0.0, 43.0),   # top tip
-        (5.5, 38.0),
-        (7.5, 32.0),   # widest point
-        (4.0, 28.5),
-        (0.0, 27.0),   # bottom
-        (-4.0, 28.5),
-        (-7.5, 32.0),
-        (-5.5, 38.0),
-    ]
-    with BuildSketch() as mitre_sk:
-        with BuildLine():
-            Spline(mitre_pts)
-            Line(mitre_pts[-1], mitre_pts[0])
-        make_face()
-    mitre = mitre_sk.sketch
-    bishop = base + body + collar + mitre
-    # Diagonal mitre slit as a true internal opening (spec 14.3).
-    slit = Pos(1.0, 35.0) * Rot(0, 0, 22) * rounded_bar(2.3, 12.0, -6.0, radius=1.1)
-    bishop = bishop - slit
-    return scaled(centered(bishop), scale)
-
-
-def _crown_points(
+def _coronet(
     tips: list[tuple[float, float]],
     band_top: float,
     ball_radius: float,
 ) -> Sketch:
     """A continuous zig-zag crown polygon topped by a ball at every tip."""
-    # Walk up the left side of each spike and down the right, tracing the
-    # valleys between tips, then close along the band. One connected polygon.
     valley_y = band_top
     left_x = tips[0][0] - ball_radius
     right_x = tips[-1][0] + ball_radius
@@ -188,11 +97,11 @@ def _crown_points(
         up_pts.append((tx, ty))
         if i < len(tips) - 1:
             mid_x = (tx + tips[i + 1][0]) / 2
-            up_pts.append((mid_x, valley_y + 2.0))
+            up_pts.append((mid_x, valley_y + 2.5))
     up_pts.append((right_x, valley_y))
     with BuildSketch() as sk:
         with BuildLine():
-            poly_pts = up_pts + [(right_x, valley_y - 3.0), (left_x, valley_y - 3.0)]
+            poly_pts = up_pts + [(right_x, valley_y - 3.5), (left_x, valley_y - 3.5)]
             for a, b in zip(poly_pts, poly_pts[1:] + poly_pts[:1], strict=True):
                 Line(a, b)
         make_face()
@@ -202,46 +111,165 @@ def _crown_points(
     return crown
 
 
-def make_queen(scale: float = 1.0) -> Sketch:
-    """Queen: broad shoulder and a five-point balled crown, centre tallest."""
-    base = make_common_base(width=30.0, height=15.0, waist_width=12.0)
-    with BuildSketch() as body_sk:
-        with BuildLine():
-            Line((-8.0, 13.0), (8.0, 13.0))
-            Line((8.0, 13.0), (15.5, 26.0))
-            Line((15.5, 26.0), (-15.5, 26.0))
-            Line((-15.5, 26.0), (-8.0, 13.0))
-        make_face()
-    body = body_sk.sketch
-    band = rounded_bar(31.0, 5.0, 25.0, radius=1.5)
-    tips = [
-        (-14.0, 37.5),
-        (-8.0, 40.0),
-        (0.0, 43.0),
-        (8.0, 40.0),
-        (14.0, 37.5),
+# --------------------------------------------------------------------------
+# Individual pieces (realistic Staunton-style turned silhouettes)
+# --------------------------------------------------------------------------
+
+
+def make_pawn(scale: float = 1.0) -> Sketch:
+    """Pawn: flared foot, base bead, concave stem, collar and a spherical head."""
+
+    def edges() -> None:
+        Line((0.0, 0.0), (9.0, 0.0))               # foot underside
+        Line((9.0, 0.0), (9.0, 2.0))               # foot rim
+        Spline((9.0, 2.0), (7.0, 3.3), (8.2, 4.9), (5.2, 6.2))   # base bead
+        Spline((5.2, 6.2), (2.9, 9.0), (2.7, 12.6))              # concave stem
+        Spline((2.7, 12.6), (5.2, 14.1), (4.7, 16.0), (2.7, 17.2))  # collar bead
+        Line((2.7, 17.2), (2.3, 18.6))             # neck
+        Spline((2.3, 18.6), (5.2, 20.6), (5.4, 23.8), (3.0, 26.4), (0.0, 27.4))  # head
+        Line((0.0, 27.4), (0.0, 0.0))              # axis
+    return scaled(centered(_revolved(edges)), scale)
+
+
+def make_rook(scale: float = 1.0) -> Sketch:
+    """Rook: turned body rising to a castellated top with three merlons."""
+
+    def edges() -> None:
+        Line((0.0, 0.0), (10.0, 0.0))              # foot underside
+        Line((10.0, 0.0), (10.0, 2.2))             # foot rim
+        Spline((10.0, 2.2), (7.8, 3.4), (9.0, 5.2), (7.0, 6.4))   # base bead
+        Spline((7.0, 6.4), (5.7, 9.5), (5.9, 13.0))               # slim tapered body
+        Spline((5.9, 13.0), (7.4, 14.2), (7.1, 15.8), (6.4, 16.6))  # collar
+        Line((6.4, 16.6), (9.0, 18.6))             # flare out to the parapet
+        Line((9.0, 18.6), (9.0, 25.0))             # tower wall
+        Line((9.0, 25.0), (0.0, 25.0))             # top of the parapet
+        Line((0.0, 25.0), (0.0, 0.0))              # axis
+    body = _revolved(edges)
+    # Two crenels cut into the parapet leave three merlons in the front view.
+    crenel = Rectangle(3.4, 4.6)
+    body = body - (Pos(-4.6, 24.0) * crenel) - (Pos(4.6, 24.0) * crenel)
+    return scaled(centered(body), scale)
+
+
+def _horse_profile() -> Sketch:
+    """A single connected, left-facing horse-head silhouette (muzzle at -X)."""
+    # Outline walked clockwise from the bottom-right of the neck; the straight
+    # bottom segment is glued onto the turned base by the union.
+    outline = [
+        (10.5, 9.0),    # bottom-right of neck
+        (11.5, 20.0),   # back of neck
+        (10.5, 27.0),   # crest
+        (8.5, 33.0),    # start of mane
+        (6.5, 37.5),    # mane bump
+        (5.0, 40.5),    # poll
+        (3.2, 42.5),    # rear ear tip
+        (1.6, 40.0),    # between the ears
+        (0.0, 42.0),    # front ear tip
+        (-2.5, 39.0),   # forehead
+        (-5.5, 36.5),   # brow
+        (-9.5, 34.0),   # bridge of the nose
+        (-12.5, 31.0),  # top of the muzzle
+        (-13.2, 28.2),  # nose tip (leftmost)
+        (-11.5, 26.6),  # nostril
+        (-9.5, 26.9),   # lip
+        (-7.5, 25.2),   # mouth / chin
+        (-6.0, 22.5),   # jaw
+        (-6.6, 18.0),   # throat
+        (-6.0, 12.5),   # front of neck
+        (-4.0, 9.0),    # bottom-left of neck
     ]
-    crown = _crown_points(tips, band_top=30.0, ball_radius=2.6)
-    queen = base + body + band + crown
-    return scaled(centered(queen), scale)
+    with BuildSketch() as sk:
+        with BuildLine():
+            Spline(outline)
+            Line(outline[-1], outline[0])
+        make_face()
+    return sk.sketch
+
+
+def make_knight(scale: float = 1.0, facing: str = "left") -> Sketch:
+    """Knight: a turned pedestal carrying a stylised horse head.
+
+    ``facing`` selects ``"left"`` (native) or ``"right"`` (mirrored about Y).
+    """
+    if facing not in ("left", "right"):
+        raise ValueError(f"facing must be 'left' or 'right', got {facing!r}")
+
+    def edges() -> None:
+        Line((0.0, 0.0), (10.0, 0.0))              # foot underside
+        Line((10.0, 0.0), (10.0, 2.2))             # foot rim
+        Spline((10.0, 2.2), (7.8, 3.4), (9.0, 5.2), (7.2, 6.5))   # base bead
+        Spline((7.2, 6.5), (6.2, 8.5), (6.6, 10.5))               # short pedestal stem
+        Line((6.6, 10.5), (7.6, 11.5))             # collar out
+        Line((7.6, 11.5), (0.0, 11.5))             # pedestal top
+        Line((0.0, 11.5), (0.0, 0.0))              # axis
+    pedestal = _revolved(edges)
+    knight = pedestal + _horse_profile()
+    if facing == "right":
+        knight = mirror(knight, about=Plane.YZ)
+    return scaled(centered(knight), scale)
+
+
+def make_bishop(scale: float = 1.0) -> Sketch:
+    """Bishop: slender turned body, a mitre with a finial and a diagonal slit."""
+
+    def edges() -> None:
+        Line((0.0, 0.0), (9.0, 0.0))               # foot underside
+        Line((9.0, 0.0), (9.0, 2.0))               # foot rim
+        Spline((9.0, 2.0), (7.0, 3.2), (8.0, 4.9), (5.3, 6.0))    # base bead
+        Spline((5.3, 6.0), (2.9, 9.5), (2.7, 15.5))               # tall slender stem
+        Spline((2.7, 15.5), (4.9, 16.8), (4.4, 18.6), (2.7, 19.6))  # collar bead
+        Line((2.7, 19.6), (3.1, 21.2))             # mitre base flare
+        Spline((3.1, 21.2), (6.2, 23.8), (6.6, 28.4), (4.1, 32.4), (2.0, 34.4))  # mitre
+        Spline((2.0, 34.4), (1.1, 35.2), (1.6, 36.6), (0.0, 37.4))  # finial ball
+        Line((0.0, 37.4), (0.0, 0.0))              # axis
+    bishop = _revolved(edges)
+    # Diagonal mitre slit as a true internal opening (spec 14.3).
+    slit = Pos(0.8, 29.0) * Rot(0, 0, 26) * rounded_bar(1.9, 9.5, -4.75, radius=0.9)
+    return scaled(centered(bishop - slit), scale)
+
+
+def make_queen(scale: float = 1.0) -> Sketch:
+    """Queen: tall turned body, a flared shoulder and a balled five-point coronet."""
+
+    def edges() -> None:
+        Line((0.0, 0.0), (11.0, 0.0))              # foot underside
+        Line((11.0, 0.0), (11.0, 2.2))             # foot rim
+        Spline((11.0, 2.2), (8.6, 3.5), (9.7, 5.3), (6.7, 6.7))   # base bead
+        Spline((6.7, 6.7), (3.5, 11.0), (3.3, 17.5))              # slender concave stem
+        Spline((3.3, 17.5), (5.8, 18.9), (5.2, 20.6), (3.5, 21.6))  # collar bead
+        Spline((3.5, 21.6), (7.6, 23.2), (10.2, 25.6), (10.0, 27.6))  # flaring shoulder
+        Line((10.0, 27.6), (0.0, 27.6))            # coronet seat
+        Line((0.0, 27.6), (0.0, 0.0))              # axis
+    body = _revolved(edges)
+    tips = [
+        (-9.6, 33.0),
+        (-4.9, 36.2),
+        (0.0, 38.6),
+        (4.9, 36.2),
+        (9.6, 33.0),
+    ]
+    coronet = _coronet(tips, band_top=27.6, ball_radius=2.4)
+    return scaled(centered(body + coronet), scale)
 
 
 def make_king(scale: float = 1.0) -> Sketch:
-    """King: broad body, rounded crown and a connected central cross."""
-    base = make_common_base(width=30.0, height=15.0, waist_width=12.0)
-    with BuildSketch() as body_sk:
-        with BuildLine():
-            Line((-8.0, 13.0), (8.0, 13.0))
-            Line((8.0, 13.0), (15.5, 26.0))
-            Line((15.5, 26.0), (-15.5, 26.0))
-            Line((-15.5, 26.0), (-8.0, 13.0))
-        make_face()
-    body = body_sk.sketch
-    crown = rounded_bar(29.0, 11.0, 25.0, radius=5.0)
-    # Central cross, overlapping the crown so it never floats (spec 16.2).
-    cross_v = rounded_bar(3.4, 12.0, 34.0, radius=1.0)
-    cross_h = rounded_bar(9.0, 3.4, 38.5, radius=1.0)
-    king = base + body + crown + cross_v + cross_h
+    """King: tall turned body, a domed crown and a connected central cross."""
+
+    def edges() -> None:
+        Line((0.0, 0.0), (11.0, 0.0))              # foot underside
+        Line((11.0, 0.0), (11.0, 2.2))             # foot rim
+        Spline((11.0, 2.2), (8.6, 3.5), (9.7, 5.3), (6.7, 6.7))   # base bead
+        Spline((6.7, 6.7), (3.5, 11.0), (3.3, 18.0))              # slender concave stem
+        Spline((3.3, 18.0), (5.8, 19.4), (5.2, 21.1), (3.5, 22.1))  # collar bead
+        Spline((3.5, 22.1), (7.8, 24.0), (9.4, 27.0), (9.0, 29.4))  # shoulder to crown
+        Line((9.0, 29.4), (8.6, 31.2))             # crown band
+        Spline((8.6, 31.2), (6.8, 33.2), (3.6, 34.2), (0.0, 34.4))  # domed crown top
+        Line((0.0, 34.4), (0.0, 0.0))              # axis
+    body = _revolved(edges)
+    # Central cross, overlapping the dome so it never floats (spec 16.2).
+    cross_v = rounded_bar(3.0, 10.0, 33.0, radius=0.9)
+    cross_h = rounded_bar(7.8, 2.8, 36.6, radius=0.9)
+    king = body + cross_v + cross_h
     return scaled(centered(king), scale)
 
 
@@ -259,11 +287,23 @@ _GENERATORS = {
 }
 
 
+@lru_cache(maxsize=1)
+def _tallest_single_height() -> float:
+    """Native height of the tallest single-sided piece (the king)."""
+    return max(gen(scale=1.0).bounding_box().size.Y for gen in _GENERATORS.values())
+
+
 def _fit_two_sided(sketch: Sketch) -> Sketch:
-    """Double a single figure into a two-sided token scaled to fit one square."""
+    """Double a single figure into a two-sided token.
+
+    Every piece is scaled by the *same* factor -- chosen so the tallest piece's
+    two-sided figure just fills a square -- so the pieces keep their realistic
+    relative heights (the king towers over the pawn) instead of each being
+    stretched independently to the same height.
+    """
     doubled = two_sided(sketch)
-    height = doubled.bounding_box().size.Y
-    return scaled(doubled, PIECE_MAX_HEIGHT / height)
+    tallest_doubled = 2 * _tallest_single_height() + TWO_SIDED_BORDER
+    return scaled(doubled, PIECE_MAX_HEIGHT / tallest_doubled)
 
 
 def make_piece(
