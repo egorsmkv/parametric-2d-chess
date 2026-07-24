@@ -147,10 +147,38 @@ scripts/            generate_all.py, preview_set.py, app.py
 tests/              test_pieces.py, test_board.py, test_layout.py, test_app.py
 ```
 
+## Releases (CI)
+
+Pushing a version tag builds and publishes a GitHub release via
+[`.github/workflows/release.yml`](.github/workflows/release.yml):
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Each release gets, **for all three figure modes**:
+
+* `chess2d-<mode>-<tag>.zip` — the full model set (`svg/`, `dxf/`, `step/`, `stl/`);
+* `board-<mode>-<tag>.png` — a rendered image of that board with its figures.
+
+The workflow lints, type-checks and tests first, then verifies every archive
+really contains STEP and STL files before publishing. `workflow_dispatch` runs a
+dry build that uploads workflow artifacts without creating a release.
+
+Build the same artifacts locally:
+
+```bash
+python scripts/build_release.py --version v1.0.0
+```
+
+Images need an SVG rasteriser — `cairosvg`, `rsvg-convert` (`librsvg2-bin`, what
+CI uses) or `inkscape`; add `--no-images` to skip them.
+
 ## Development
 
 ```bash
-uv run pytest        # 64 geometry / layout validation tests
+uv run pytest        # geometry / layout / app validation tests
 uv run ruff check .  # lint
 uv run mypy          # type-check src/chess2d
 ```

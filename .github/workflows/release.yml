@@ -1,0 +1,94 @@
+name: Release
+
+# Publish model archives + rendered board images whenever a version tag is pushed.
+on:
+  push:
+    tags:
+      - "v*"
+  # Allows a dry run (builds and uploads workflow artifacts, no release).
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version label used in artifact filenames"
+        required: false
+        default: "dev"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install an SVG rasteriser
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq librsvg2-bin
+          rsvg-convert --version
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint and type-check
+        run: |
+          uv run ruff check .
+          uv run mypy
+
+      - name: Run tests
+        run: uv run pytest -q
+
+      - name: Resolve version label
+        id: version
+        run: echo "value=${{ github.event_name == 'push' && github.ref_name || inputs.version }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build release artifacts
+        run: uv run python scripts/build_release.py --version "${{ steps.version.outputs.value }}"
+
+      - name: Verify artifacts
+        run: |
+          ls -la dist
+          # Fail loudly rather than publishing an empty or image-less release.
+          test "$(ls dist/*.zip | wc -l)" -eq 3
+          test "$(ls dist/*.png | wc -l)" -eq 3
+          for archive in dist/*.zip; do
+            unzip -l "$archive" | grep -q "step/" || { echo "no STEP files in $archive"; exit 1; }
+            unzip -l "$archive" | grep -q "stl/"  || { echo "no STL files in $archive";  exit 1; }
+          done
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: chess2d-${{ steps.version.outputs.value }}
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.zip
+            dist/*.png
+          generate_release_notes: true
+          body: |
+            ## 2D chess set — ${{ steps.version.outputs.value }}
+
+            Each archive holds a complete model set for one figure mode:
+            `svg/`, `dxf/`, `step/` (board + flat pieces) and `stl/` (per piece).
+
+            | Figure mode | Archive | Board image |
+            | --- | --- | --- |
+            | Single-sided | `chess2d-single-*.zip` | `board-single-*.png` |
+            | Two-sided | `chess2d-two_sided-*.zip` | `board-two_sided-*.png` |
+            | Fused | `chess2d-fused-*.zip` | `board-fused-*.png` |
