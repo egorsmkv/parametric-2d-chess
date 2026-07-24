@@ -204,14 +204,16 @@ def build_demo() -> gr.Blocks:
                 with_solids = gr.Checkbox(
                     value=True, label="Include 3D solids (STEP + STL) — slower"
                 )
-                generate_btn = gr.Button("Generate files (ZIP)", variant="primary")
+                generate_btn: Any = gr.Button("Generate files (ZIP)", variant="primary")
                 download = gr.File(label="Download SVG / DXF / STEP / STL (ZIP)")
             with gr.Column(scale=2):
                 gr.Markdown("### Preview")
                 preview = gr.HTML()
 
-        # Typed as Any: the controls are different component classes whose common
-        # base does not expose the .change event helper.
+        # Event listeners (.change, .click) are attached to component classes
+        # dynamically by gradio, so static analysis cannot see them -- how much
+        # it resolves varies between environments. Annotating the receivers as
+        # Any keeps the type check stable everywhere.
         inputs: list[Any] = [
             mode, board_size, figure_size, piece_thickness, board_thickness
         ]

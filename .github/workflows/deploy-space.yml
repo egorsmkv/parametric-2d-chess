@@ -32,16 +32,16 @@ jobs:
         run: uv sync --extra app
 
       - name: Lint
-        run: uv run ruff check .
+        run: uv run --extra app ruff check .
 
       - name: Type-check
-        run: uv run mypy
+        run: uv run --extra app mypy
 
       - name: Run tests
-        run: uv run pytest
+        run: uv run --extra app pytest
 
       - name: Verify the Space payload assembles
-        run: uv run python scripts/deploy_space.py --space-id dry/run --dry-run
+        run: uv run --extra app python scripts/deploy_space.py --space-id dry/run --dry-run
 
   deploy:
     name: Deploy to Hugging Face Space
