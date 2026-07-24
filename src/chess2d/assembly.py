@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import reduce
 
-from build123d import Location, Pos, Rot, Sketch
+from build123d import Pos, Sketch
 
 from .board import BoardGeometry, make_board, square_center
 from .parameters import DEFAULT_STYLE, ChessStyle, PieceType, Side
@@ -31,15 +31,15 @@ def place_piece(
     side: Side,
     square_size: float = DEFAULT_STYLE.square_size,
 ) -> Sketch:
-    """Position a native (+Y facing) piece sketch onto a board square.
+    """Position a piece sketch onto a board square.
 
-    Black pieces receive a 180 deg rotation about Z so they face White.
+    Pieces are two-sided figures (see :func:`chess2d.pieces.make_piece`): each is
+    symmetric top-to-bottom, so it reads upright from both edges of the board and
+    needs no per-side rotation. ``side`` is kept for API symmetry and for grouping
+    the two colour layers in the export/preview stage.
     """
     x, y = square_center(file_index, rank_index, square_size)
-    transform: Location = Pos(x, y)
-    if side is Side.BLACK:
-        transform = transform * Rot(0, 0, 180)
-    return transform * sketch
+    return Pos(x, y) * sketch
 
 
 @dataclass(frozen=True)
@@ -58,10 +58,14 @@ def _placed_side(side: Side, style: ChessStyle) -> Sketch:
 
     placed: list[Sketch] = []
     for file in range(8):
-        piece = make_piece(BACK_RANK[file], scale=style.piece_scale)
+        piece = make_piece(
+            BACK_RANK[file], scale=style.piece_scale, two_sided_figure=style.two_sided
+        )
         placed.append(place_piece(piece, file, back_rank_index, side, style.square_size))
     for file in range(8):
-        pawn = make_piece(PieceType.PAWN, scale=style.piece_scale)
+        pawn = make_piece(
+            PieceType.PAWN, scale=style.piece_scale, two_sided_figure=style.two_sided
+        )
         placed.append(place_piece(pawn, file, pawn_rank_index, side, style.square_size))
 
     return reduce(lambda a, b: a + b, placed)

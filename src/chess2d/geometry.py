@@ -50,6 +50,21 @@ def symmetric(half: Sketch) -> Sketch:
     return half + mirror(half, about=Plane.YZ)
 
 
+def two_sided(sketch: Sketch, overlap: float = 1.5) -> Sketch:
+    """Fuse a centred piece with its vertical mirror into a two-sided figure.
+
+    The result shows the figure upright from *both* the bottom and top edges of
+    the board: the two copies meet base-to-base in the middle with their heads
+    pointing outward (up and down). ``overlap`` merges the two bases so the
+    figure resolves to a single connected face.
+    """
+    box = sketch.bounding_box()
+    shift = box.size.Y / 2 - overlap
+    top = Pos(0, shift) * sketch
+    bottom = mirror(top, about=Plane.XZ)  # flip Y -> base-to-base in the middle
+    return top + bottom
+
+
 def centered(sketch: Sketch) -> Sketch:
     """Translate ``sketch`` so its bounding-box centre lands on the origin."""
     box = sketch.bounding_box()

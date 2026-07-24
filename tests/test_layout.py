@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import pytest
+from build123d import CenterOf
 
 from chess2d.assembly import (
     BACK_RANK,
     make_initial_position,
     place_piece,
 )
+from chess2d.board import square_center
 from chess2d.parameters import SQUARE_SIZE, PieceType, Side
 from chess2d.pieces import make_piece
 
@@ -56,14 +58,25 @@ def test_black_pieces_are_on_far_side() -> None:
     assert black_box.center().Y > 0
 
 
-def test_black_rotation_is_consistent() -> None:
-    # A black knight is the mirror-in-Y (180 deg rotated) of the white one.
+def test_both_sides_use_identical_two_sided_geometry() -> None:
+    # Two-sided figures need no per-side rotation, so a Black piece is just the
+    # White one translated: identical centroid offset relative to its square.
     white_knight = place_piece(make_piece(PieceType.KNIGHT), 1, 0, Side.WHITE)
     black_knight = place_piece(make_piece(PieceType.KNIGHT), 1, 7, Side.BLACK)
-    wb = white_knight.bounding_box()
-    bb = black_knight.bounding_box()
-    # 180 deg rotation flips the local X extent of the asymmetric knight.
-    assert pytest.approx(bb.size.X, abs=1e-6) == wb.size.X
+
+    wx, wy = square_center(1, 0)
+    bx, by = square_center(1, 7)
+    wc = white_knight.faces()[0].center(CenterOf.MASS)
+    bc = black_knight.faces()[0].center(CenterOf.MASS)
+    assert pytest.approx(wc.X - wx, abs=1e-6) == bc.X - bx
+    assert pytest.approx(wc.Y - wy, abs=1e-6) == bc.Y - by
+
+
+def test_two_sided_figure_is_vertically_symmetric() -> None:
+    # Each figure reads the same from top and bottom edges: symmetric in Y.
+    for piece_type in PieceType:
+        box = make_piece(piece_type).bounding_box()
+        assert abs(box.min.Y + box.max.Y) < 1e-6
 
 
 def test_pawn_ranks() -> None:

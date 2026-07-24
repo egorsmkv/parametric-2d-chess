@@ -113,6 +113,10 @@ class ChessStyle:
     piece_scale: float = 1.0
     piece_thickness: float = PIECE_THICKNESS
     board_thickness: float = BOARD_THICKNESS
+    # When True (default) every piece is a two-sided figure (fused with its
+    # vertical mirror) that reads upright from both edges of the board. When
+    # False the plain single-sided silhouette is used.
+    two_sided: bool = True
 
 
 DEFAULT_STYLE = ChessStyle()

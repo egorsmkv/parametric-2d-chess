@@ -32,8 +32,9 @@ from .geometry import (
     outline_wires,
     rounded_bar,
     scaled,
+    two_sided,
 )
-from .parameters import PIECE_THICKNESS, PieceType
+from .parameters import PIECE_MAX_HEIGHT, PIECE_THICKNESS, PieceType
 
 # --------------------------------------------------------------------------
 # Common base (spec section 10)
@@ -258,19 +259,35 @@ _GENERATORS = {
 }
 
 
+def _fit_two_sided(sketch: Sketch) -> Sketch:
+    """Double a single figure into a two-sided token scaled to fit one square."""
+    doubled = two_sided(sketch)
+    height = doubled.bounding_box().size.Y
+    return scaled(doubled, PIECE_MAX_HEIGHT / height)
+
+
 def make_piece(
     piece_type: PieceType,
     scale: float = 1.0,
     mirrored: bool = False,
+    two_sided_figure: bool = True,
 ) -> Sketch:
-    """Unified dispatcher returning the filled 2D face for any piece type."""
+    """Unified dispatcher returning the filled 2D face for any piece type.
+
+    By default the figure is *two-sided*: the silhouette is fused with its
+    vertical mirror so it reads upright from both edges of the board (matching a
+    flat token that both players view). Pass ``two_sided_figure=False`` for the
+    plain single-sided silhouette.
+    """
     if piece_type is PieceType.KNIGHT:
-        sketch = make_knight(scale=scale, facing="right" if mirrored else "left")
+        sketch = make_knight(scale=1.0, facing="right" if mirrored else "left")
     else:
-        sketch = _GENERATORS[piece_type](scale=scale)
+        sketch = _GENERATORS[piece_type](scale=1.0)
         if mirrored:
             sketch = centered(mirror(sketch, about=Plane.YZ))
-    return sketch
+    if two_sided_figure:
+        sketch = _fit_two_sided(sketch)
+    return scaled(sketch, scale)
 
 
 @dataclass(frozen=True)
@@ -289,9 +306,12 @@ def make_piece_geometry(
     outline_width: float = 1.4,
     with_solid: bool = False,
     thickness: float = PIECE_THICKNESS,
+    two_sided_figure: bool = True,
 ) -> PieceGeometry:
     """Bundle the fill face, an outline and an optional thin solid for a piece."""
-    fill = make_piece(piece_type, scale=scale, mirrored=mirrored)
+    fill = make_piece(
+        piece_type, scale=scale, mirrored=mirrored, two_sided_figure=two_sided_figure
+    )
     ring = outline_ring(fill, outline_width)
     outline: Shape = ring if ring is not None else outline_wires(fill)
     solid = extrude(fill, amount=thickness) if with_solid else None
@@ -302,6 +322,8 @@ def make_piece_solid(
     piece_type: PieceType,
     thickness: float = PIECE_THICKNESS,
     scale: float = 1.0,
+    two_sided_figure: bool = True,
 ) -> Part:
     """Extrude a piece silhouette into a thin flat token (spec section 20)."""
-    return extrude(make_piece(piece_type, scale=scale), amount=thickness)
+    sketch = make_piece(piece_type, scale=scale, two_sided_figure=two_sided_figure)
+    return extrude(sketch, amount=thickness)

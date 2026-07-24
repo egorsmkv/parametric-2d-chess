@@ -79,8 +79,9 @@ def test_knight_facing_mirror() -> None:
 @pytest.mark.parametrize("piece_type", ALL_PIECES)
 def test_piece_within_target_dims(piece_type: PieceType) -> None:
     dims = PIECE_DIMS[piece_type]
-    box = make_piece(piece_type).bounding_box()
-    # Generated silhouette stays within a small tolerance of the spec targets.
+    # The single-sided silhouette stays within a small tolerance of the spec
+    # targets (the two-sided figure is intentionally taller and re-scaled).
+    box = make_piece(piece_type, two_sided_figure=False).bounding_box()
     assert dims.width + 2.0 >= box.size.X
     assert dims.height + 2.0 >= box.size.Y
 
@@ -110,3 +111,19 @@ def test_thin_solid_extrusion(piece_type: PieceType) -> None:
     solid = make_piece_solid(piece_type, thickness=2.0)
     assert len(solid.solids()) >= 1
     assert solid.volume > 0
+
+
+@pytest.mark.parametrize("piece_type", ALL_PIECES)
+def test_two_sided_flag_changes_geometry(piece_type: PieceType) -> None:
+    single = make_piece(piece_type, two_sided_figure=False)
+    double = make_piece(piece_type, two_sided_figure=True)
+    single_box = single.bounding_box()
+    double_box = double.bounding_box()
+    # Two-sided figures are mass-symmetric top-to-bottom; single-sided ones lean
+    # toward their (heavier) base, so the flag genuinely changes the geometry.
+    assert abs(double.faces()[0].center(CenterOf.MASS).Y) < 1e-6
+    assert abs(double_box.size.Y - single_box.size.Y) > 0.5
+    # Both still fit inside a square.
+    for box in (single_box, double_box):
+        assert box.size.X <= SQUARE_SIZE
+        assert box.size.Y <= SQUARE_SIZE

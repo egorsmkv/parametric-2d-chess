@@ -29,14 +29,35 @@ output/
 └── stl/   <piece>.stl ×6
 ```
 
-Pass `--no-solids` to skip the STEP/STL extrusions, or a directory name to
-change the destination:
+Flags:
+
+* `--no-solids` — skip the STEP/STL extrusions.
+* `--single-sided` — plain single-sided silhouettes instead of the default
+  two-sided figures.
+* a positional argument sets the output directory.
 
 ```bash
-python scripts/generate_all.py my_output --no-solids
+python scripts/generate_all.py my_output --no-solids --single-sided
 ```
 
 `python build_model.py` is a root-level shortcut for the same generation step.
+
+## Two-sided figures
+
+By default every piece is a **two-sided figure**: the silhouette is fused with
+its vertical mirror (base-to-base) so it reads upright from *both* edges of the
+board — no piece is ever upside-down for either player, and the two sides are
+told apart only by fill colour. This is controlled by the `two_sided` flag on
+[`ChessStyle`](src/chess2d/parameters.py):
+
+```python
+from chess2d import ChessStyle, generate_all
+
+generate_all(style=ChessStyle(two_sided=False))   # single-sided silhouettes
+```
+
+The same `two_sided_figure` flag is available directly on `make_piece`,
+`make_piece_solid` and `make_piece_geometry`.
 
 ## Previewing
 

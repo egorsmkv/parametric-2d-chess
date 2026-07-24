@@ -53,10 +53,11 @@ def export_piece_svg(
     path: str | Path,
     scale: float = 1.0,
     fill: tuple[float, float, float] = WHITE_FILL_COLOR,
+    two_sided: bool = True,
 ) -> Path:
     """Write a single filled piece silhouette as an SVG."""
     out = _ensure_parent(path)
-    sketch = make_piece(piece_type, scale=scale)
+    sketch = make_piece(piece_type, scale=scale, two_sided_figure=two_sided)
     exporter = ExportSVG(fit_to_stroke=True)
     exporter.add_layer("fill", fill_color=_color(fill), line_color=Color(0.15, 0.15, 0.15))
     exporter.add_shape(sketch, layer="fill")
@@ -129,29 +130,45 @@ def export_dxf(shapes: dict[str, Sketch], path: str | Path) -> Path:
 
 
 def export_piece_step(
-    piece_type: PieceType, path: str | Path, thickness: float, scale: float = 1.0
+    piece_type: PieceType,
+    path: str | Path,
+    thickness: float,
+    scale: float = 1.0,
+    two_sided: bool = True,
 ) -> Path:
     out = _ensure_parent(path)
-    solid = make_piece_solid(piece_type, thickness=thickness, scale=scale)
+    solid = make_piece_solid(
+        piece_type, thickness=thickness, scale=scale, two_sided_figure=two_sided
+    )
     export_step(solid, str(out))
     return out
 
 
 def export_piece_stl(
-    piece_type: PieceType, path: str | Path, thickness: float, scale: float = 1.0
+    piece_type: PieceType,
+    path: str | Path,
+    thickness: float,
+    scale: float = 1.0,
+    two_sided: bool = True,
 ) -> Path:
     out = _ensure_parent(path)
-    solid = make_piece_solid(piece_type, thickness=thickness, scale=scale)
+    solid = make_piece_solid(
+        piece_type, thickness=thickness, scale=scale, two_sided_figure=two_sided
+    )
     export_stl(solid, str(out))
     return out
 
 
-def export_flat_pieces_step(path: str | Path, thickness: float, scale: float = 1.0) -> Path:
+def export_flat_pieces_step(
+    path: str | Path, thickness: float, scale: float = 1.0, two_sided: bool = True
+) -> Path:
     """All six flat-piece solids laid out in a row, as one STEP file."""
     out = _ensure_parent(path)
     solids = []
     for i, pt in enumerate(PieceType):
-        solid = make_piece_solid(pt, thickness=thickness, scale=scale)
+        solid = make_piece_solid(
+            pt, thickness=thickness, scale=scale, two_sided_figure=two_sided
+        )
         solids.append(Pos((i - 2.5) * 45.0, 0, 0) * solid)
     compound = Compound(children=solids)
     export_step(compound, str(out))
@@ -181,7 +198,8 @@ def generate_all(
     svg_dir = root / "svg"
     written.append(export_board_svg(board, svg_dir / "board.svg"))
     for pt in PieceType:
-        written.append(export_piece_svg(pt, svg_dir / f"{pt.value}.svg", style.piece_scale))
+        written.append(export_piece_svg(
+            pt, svg_dir / f"{pt.value}.svg", style.piece_scale, two_sided=style.two_sided))
     written.append(export_composition_svg(composition, svg_dir / "initial_position.svg"))
 
     # --- DXF ---
@@ -190,7 +208,8 @@ def generate_all(
                               dxf_dir / "board.dxf"))
     # Space the pieces out so they do not overlap in the DXF.
     spaced = {
-        pt.value: Pos((i - 2.5) * 45.0, 0) * make_piece(pt, scale=style.piece_scale)
+        pt.value: Pos((i - 2.5) * 45.0, 0)
+        * make_piece(pt, scale=style.piece_scale, two_sided_figure=style.two_sided)
         for i, pt in enumerate(PieceType)
     }
     written.append(export_dxf(spaced, dxf_dir / "pieces.dxf"))
@@ -213,9 +232,11 @@ def generate_all(
                             amount=style.board_thickness), str(board_solid_path))
         written.append(board_solid_path)
         written.append(export_flat_pieces_step(
-            step_dir / "flat_pieces.step", style.piece_thickness, style.piece_scale))
+            step_dir / "flat_pieces.step", style.piece_thickness, style.piece_scale,
+            two_sided=style.two_sided))
         for pt in PieceType:
             written.append(export_piece_stl(
-                pt, stl_dir / f"{pt.value}.stl", style.piece_thickness, style.piece_scale))
+                pt, stl_dir / f"{pt.value}.stl", style.piece_thickness, style.piece_scale,
+                two_sided=style.two_sided))
 
     return written
