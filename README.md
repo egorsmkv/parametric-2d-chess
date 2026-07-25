@@ -239,31 +239,37 @@ if find_bambu_studio():
 
 ### Why profiles are handled the way they are
 
-Two things make Bambu Studio's system profiles awkward to drive from the CLI,
-and both show up as the same unhelpful failure — exit 239 with *"process not
-compatible with printer"*:
+Two properties of Bambu Studio's system profiles make them awkward to drive from
+the CLI, and both surface as the same unhelpful failure — exit 239 with
+*"process not compatible with printer"*:
 
-* **The presets are fragments.** `0.20mm Standard @BBL P1P.json` holds a handful
-  of overrides and an `inherits` pointer; the settings themselves live up the
-  chain. Handed that file directly, the slicer sees a config with most of its
-  values missing. So a named preset is flattened against its ancestors into a
-  temporary file before it is passed to `--load-settings`.
-* **Not every process slices for every printer.** A process preset lists the
-  machines it accepts in `compatible_printers`, and the names do not follow the
-  model — a P1S slices with `@BBL P1P` presets. So the pair is checked against
-  the installed tree first, and an impossible combination is refused with the
-  list of ones that would work instead of being passed to the slicer.
+* **The presets are fragments.** `Bambu Lab P1S 0.4 nozzle.json` holds 61 keys
+  and an `inherits` pointer; flattened against its ancestors it has 113. Handed
+  the fragment, the slicer sees a config with most of its values missing. So a
+  named preset is merged with its chain into a temporary file before it goes to
+  `--load-settings`.
+* **Process presets are not named after the printers they fit.** A process lists
+  the machines it accepts in `compatible_printers`, and **the P1S slices with
+  the X1C's presets** — `0.20mm Standard @BBL X1C`, not the `@BBL P1P` you would
+  guess from the model. Every machine preset states its own answer in
+  `default_print_profile`, so that is what gets used.
 
-The names in `PRINTERS` are therefore starting points, not answers.
-`resolve_printer_profiles()` reconciles them with whatever is installed, and a
-`.json` path you pass yourself is left alone — a preset exported from Bambu
-Studio is already complete and its compatibility is your call.
+`resolve_printer_profiles()` reconciles the `PRINTERS` table with whatever is
+installed and returns a pair the slicer accepts; an impossible combination is
+refused up front, naming the ones that would work. A `.json` path you pass
+yourself is left alone — a preset exported from Bambu Studio is already complete
+and its compatibility is your call.
 
 Inspect what your own installation offers:
 
 ```bash
 python -c "from chess2d.bambu import *; m=resolve_printer_profiles(PRINTERS['Bambu Lab P1S'])[0]; print(m); print(compatible_processes(m))"
 ```
+
+Where Bambu Studio is installed, `tests/test_bambu.py` slices a real plate and
+checks the `PRINTERS` plates and preset names against the installed profiles, so
+the table cannot drift from reality unnoticed. Those tests skip themselves
+everywhere else.
 
 One caution from Bambu's own [command-line
 guide](https://github.com/bambulab/BambuStudio/wiki/Command-Line-Usage): the CLI

@@ -51,6 +51,7 @@ __all__ = [
     "Printer",
     "arrange_plate",
     "compatible_processes",
+    "default_filament",
     "export_pieces_3mf",
     "export_plate_3mf",
     "find_bambu_studio",
@@ -92,12 +93,14 @@ class Printer:
     process_profile: str
 
 
-#: The plate figures are the printable areas Bambu publishes for each machine,
-#: which are a few millimetres smaller than the sheet itself.
+#: Plates and preset names are read off the profiles Bambu Studio ships (the
+#: machine preset's own ``printable_area`` and ``default_print_profile``), not
+#: from the marketing pages. Note the P1S: it slices with the X1C's process
+#: presets, which no amount of reasoning from the model name would tell you.
 PRINTERS: dict[str, Printer] = {
     "Bambu Lab P1S": Printer(
         "Bambu Lab P1S", (256.0, 256.0),
-        "Bambu Lab P1S 0.4 nozzle", "0.20mm Standard @BBL P1P",
+        "Bambu Lab P1S 0.4 nozzle", "0.20mm Standard @BBL X1C",
     ),
     "Bambu Lab P1P": Printer(
         "Bambu Lab P1P", (256.0, 256.0),
@@ -116,7 +119,7 @@ PRINTERS: dict[str, Printer] = {
         "Bambu Lab A1 mini 0.4 nozzle", "0.20mm Standard @BBL A1M",
     ),
     "Bambu Lab H2D": Printer(
-        "Bambu Lab H2D", (325.0, 320.0),
+        "Bambu Lab H2D", (350.0, 320.0),
         "Bambu Lab H2D 0.4 nozzle", "0.20mm Standard @BBL H2D",
     ),
 }
@@ -452,8 +455,14 @@ def profiles_dir(executable: str | Path | None = None) -> Path | None:
     if override := os.environ.get(PROFILES_ENV):
         path = Path(override).expanduser()
         return path if path.is_dir() else None
+
+    # No executable given means "wherever Bambu Studio is". Without this the
+    # callers that do not thread one through -- the app among them -- would
+    # silently find no profiles and fall back to guesswork.
     if executable is None:
-        return None
+        executable = find_bambu_studio()
+        if executable is None:
+            return None
 
     executable = Path(executable).resolve()
     candidates = [
@@ -630,22 +639,57 @@ def resolve_printer_profiles(
 
     machine = printer.machine_profile
     if machine not in machines:
-        # Preset names carry the nozzle ("Bambu Lab P1S 0.4 nozzle"), and the
-        # model name is the stable part of them.
-        candidates = [name for name in machines if printer.name in name]
-        preferred = [name for name in candidates if "0.4" in name]
-        if not candidates:
-            return printer.machine_profile, printer.process_profile
-        machine = (preferred or candidates)[0]
+        machine = _machine_for_model(printer.name, machines) or machine
+    if machine not in machines:
+        return printer.machine_profile, printer.process_profile
 
+    settings = flatten_profile(machines[machine])
     processes = compatible_processes(machine, executable)
     if not processes:
         return machine, None
 
-    preference = process_preference or printer.process_profile
-    exact = [name for name in processes if name == preference]
-    prefixed = [name for name in processes if name.startswith(preference)]
-    return machine, (exact or prefixed or processes)[0]
+    # The machine preset names the process Bambu Studio itself would select,
+    # which beats anything inferred from the model: a P1S defaults to the X1C's
+    # process presets.
+    default = settings.get("default_print_profile")
+    if process_preference:
+        exact = [name for name in processes if name == process_preference]
+        prefixed = [name for name in processes if name.startswith(process_preference)]
+        if chosen := (exact or prefixed):
+            return machine, chosen[0]
+    if isinstance(default, str) and default in processes:
+        return machine, default
+
+    preferred = [name for name in processes if name.startswith(printer.process_profile)]
+    return machine, (preferred or processes)[0]
+
+
+def _machine_for_model(model: str, machines: dict[str, Path]) -> str | None:
+    """The machine preset for a printer model, preferring the 0.4 mm nozzle.
+
+    Matched on the preset's own ``printer_model`` field rather than on its name,
+    which carries the nozzle size and varies in wording.
+    """
+    candidates = [
+        name for name, path in machines.items()
+        if flatten_profile(path).get("printer_model") == model
+    ]
+    if not candidates:
+        return None
+    return next((name for name in candidates if "0.4" in name), candidates[0])
+
+
+def default_filament(machine: str, executable: str | Path | None = None) -> str | None:
+    """The filament preset a machine ships with, if it names an installed one."""
+    machines = system_profiles("machine", executable)
+    if machine not in machines:
+        return None
+    declared = flatten_profile(machines[machine]).get("default_filament_profile")
+    if isinstance(declared, list):
+        declared = declared[0] if declared else None
+    if not isinstance(declared, str):
+        return None
+    return declared if declared in system_profiles("filament", executable) else None
 
 
 def _prepare_profile(

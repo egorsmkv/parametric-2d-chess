@@ -21,6 +21,7 @@ from chess2d.bambu import (
     PlateContents,
     arrange_plate,
     compatible_processes,
+    default_filament,
     export_plate_3mf,
     find_bambu_studio,
     flatten_profile,
@@ -540,6 +541,65 @@ def test_the_slice_command_carries_the_profiles_and_output(
         "0.20mm Standard @BBL P1P",
         "Bambu PLA Basic @BBL P1P",
     ]
+
+
+# --------------------------------------------------------------------------
+# Against a real installation
+#
+# Everything above runs on fixtures. These run only where Bambu Studio is
+# actually installed -- so they are skipped in CI and on the Space, and they
+# are the only tests that can prove the CLI wrapper works.
+# --------------------------------------------------------------------------
+
+needs_bambu_studio = pytest.mark.skipif(
+    find_bambu_studio() is None, reason="Bambu Studio is not installed"
+)
+
+
+@needs_bambu_studio
+def test_every_printer_resolves_to_a_pair_the_installation_accepts() -> None:
+    # The bug this catches: a hardcoded process preset that the machine's own
+    # compatible_printers list rejects, which the CLI reports as exit 239.
+    for printer in PRINTERS.values():
+        machine, process = resolve_printer_profiles(printer)
+        assert machine in system_profiles("machine"), printer.name
+        assert process in compatible_processes(machine), (
+            f"{printer.name}: {process!r} cannot slice for {machine!r}"
+        )
+
+
+@needs_bambu_studio
+def test_the_table_plates_match_the_installed_machine_presets() -> None:
+    for printer in PRINTERS.values():
+        settings = flatten_profile(system_profiles("machine")[printer.machine_profile])
+        corners = [
+            tuple(float(value) for value in corner.split("x"))
+            for corner in settings["printable_area"]
+        ]
+        width = max(x for x, _ in corners)
+        depth = max(y for _, y in corners)
+        assert (width, depth) == printer.plate, f"{printer.name} plate is out of date"
+
+
+@needs_bambu_studio
+def test_a_plate_really_slices(tmp_path: Path) -> None:
+    printer = PRINTERS["Bambu Lab P1S"]
+    plate, _ = export_plate_3mf(tmp_path / "plate.3mf", printer=printer)
+    machine, process = resolve_printer_profiles(printer)
+
+    sliced = slice_with_bambu_studio(
+        plate, tmp_path / "plate.gcode.3mf",
+        machine=machine, process=process, filament=default_filament(machine),
+        timeout=420,
+    )
+
+    # A .gcode.3mf that carries no G-code is just a renamed model file.
+    with zipfile.ZipFile(sliced) as bundle:
+        names = bundle.namelist()
+        gcode = next(name for name in names if name.endswith(".gcode"))
+        header = bundle.read(gcode)[:400].decode(errors="replace")
+    assert "Metadata/slice_info.config" in names
+    assert "total layer number" in header
 
 
 def test_a_failed_slice_reports_the_slicer_output(

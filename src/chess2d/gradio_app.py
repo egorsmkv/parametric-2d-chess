@@ -22,6 +22,7 @@ from .bambu import (
     PLATE_CONTENTS,
     PRINTERS,
     BambuStudioError,
+    default_filament,
     export_plate_3mf,
     find_bambu_studio,
     resolve_printer_profiles,
@@ -390,19 +391,21 @@ def build_bambu(mode_label: str, style_label: str, board_label: str, figure_labe
         chosen_machine, chosen_process = resolve_printer_profiles(
             printer, process_preference=process.strip() or None
         )
+        used = machine.strip() or chosen_machine
+        used_process = process.strip() or chosen_process
+        used_filament = filament.strip() or default_filament(used)
         try:
             path = slice_with_bambu_studio(
                 path,
                 out_dir / f"{stem}.gcode.3mf",
-                machine=machine.strip() or chosen_machine,
-                process=process.strip() or chosen_process,
-                filament=filament.strip() or None,
+                machine=used,
+                process=used_process,
+                filament=used_filament,
             )
-            used = machine.strip() or chosen_machine
-            used_process = process.strip() or chosen_process or "the printer's default"
             lines.append(
-                f"**Sliced** with `{used}` + `{used_process}`: "
-                f"`{path.name}` is printer-ready."
+                f"**Sliced** with `{used}` + `{used_process}`"
+                + (f" + `{used_filament}`" if used_filament else "")
+                + f": `{path.name}` is printer-ready."
             )
         except BambuStudioError as error:
             lines.append(
