@@ -201,14 +201,17 @@ def _print_settings(material: str, filament_diameter: float, price_per_kg: float
 
 def _svg_inline(path: Path) -> str:
     """Read an exported SVG so it can be embedded and scaled by CSS."""
-    svg = path.read_text()
+    # Explicit encoding: SVG is UTF-8 by definition, and a container with a bare
+    # POSIX locale would otherwise decode it as ASCII and fail on any non-ASCII
+    # byte the exporter emits.
+    svg = path.read_text(encoding="utf-8")
     # Drop the XML declaration; sizing is handled by the stylesheet above.
     return svg.split("?>", 1)[-1]
 
 
 def _svg_dims(path: Path) -> tuple[float, float]:
     """Millimetre width/height straight from the SVG header (no re-rendering)."""
-    header = path.read_text(errors="ignore")[:400]
+    header = path.read_text(encoding="utf-8", errors="ignore")[:400]
 
     def value(attribute: str) -> float:
         found = re.search(rf'\b{attribute}="([0-9.]+)mm"', header)

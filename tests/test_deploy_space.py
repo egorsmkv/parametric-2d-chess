@@ -63,7 +63,7 @@ def test_payload_bundles_the_package(payload: Path) -> None:
 
 
 def test_space_readme_declares_the_docker_sdk(payload: Path) -> None:
-    header = (payload / "README.md").read_text()
+    header = (payload / "README.md").read_text(encoding="utf-8")
     assert header.startswith("---"), "Space README needs YAML frontmatter"
     assert "sdk: docker" in header
     # Without app_port the Space has no idea which port to route to.
@@ -76,7 +76,7 @@ def test_space_readme_declares_the_docker_sdk(payload: Path) -> None:
 
 
 def test_the_dockerfile_serves_the_app_where_the_space_expects_it(payload: Path) -> None:
-    dockerfile = (payload / "Dockerfile").read_text()
+    dockerfile = (payload / "Dockerfile").read_text(encoding="utf-8")
     assert "GRADIO_SERVER_NAME=0.0.0.0" in dockerfile, "must bind outside the container"
     assert "GRADIO_SERVER_PORT=7860" in dockerfile
     assert "EXPOSE 7860" in dockerfile
@@ -86,7 +86,7 @@ def test_the_dockerfile_serves_the_app_where_the_space_expects_it(payload: Path)
 def test_the_dockerfile_installs_bambu_studio_where_chess2d_looks(payload: Path) -> None:
     # The whole point of the Docker Space: slicing has to be available. These
     # are the two hooks chess2d.bambu reads, so a rename here must fail loudly.
-    dockerfile = (payload / "Dockerfile").read_text()
+    dockerfile = (payload / "Dockerfile").read_text(encoding="utf-8")
     assert f"{bambu.EXECUTABLE_ENV}=" in dockerfile
     assert f"{bambu.PROFILES_ENV}=" in dockerfile
     assert "--appimage-extract" in dockerfile, "AppImages need FUSE unless extracted"

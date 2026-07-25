@@ -280,7 +280,9 @@ def test_the_slice_command_carries_the_profiles_and_output(
     def fake_run(command: list[str], **_: object) -> Result:
         recorded.append(command)
         # Stand in for the slicer: the wrapper checks the file was written.
-        Path(command[command.index("--export-3mf") + 1]).write_text("sliced")
+        Path(command[command.index("--export-3mf") + 1]).write_text(
+            "sliced", encoding="utf-8"
+        )
         return Result()
 
     monkeypatch.setattr("chess2d.bambu.subprocess.run", fake_run)

@@ -106,9 +106,15 @@ RUN set -eux; \
 # ships its own UID 1000 (`ubuntu`), which has to go first or useradd fails.
 RUN userdel -r ubuntu 2>/dev/null || true; \
     useradd -m -u 1000 user
+# LANG matters: a bare container locale is POSIX, which makes Python's default
+# text encoding ASCII, and the app reads UTF-8 SVGs. PYTHONUTF8 covers anything
+# that reaches for the locale anyway.
 ENV HOME=/home/user \
     PATH=/opt/venv/bin:/usr/local/bin:/usr/bin:/bin \
     PYTHONUNBUFFERED=1 \
+    PYTHONUTF8=1 \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8 \
     GRADIO_SERVER_NAME=0.0.0.0 \
     GRADIO_SERVER_PORT=7860
 
