@@ -7,6 +7,7 @@ that would be run.
 
 from __future__ import annotations
 
+import json
 import zipfile
 from pathlib import Path
 
@@ -19,13 +20,17 @@ from chess2d.bambu import (
     Placement,
     PlateContents,
     arrange_plate,
+    compatible_processes,
     export_plate_3mf,
     find_bambu_studio,
+    flatten_profile,
     make_plate,
     plate_parts,
     profiles_dir,
+    resolve_printer_profiles,
     resolve_profile,
     slice_with_bambu_studio,
+    system_profiles,
 )
 from chess2d.export import generate_all
 from chess2d.parameters import ChessStyle, PieceType
@@ -230,7 +235,9 @@ def _fake_install(tmp_path: Path) -> Path:
         ("filament", "Bambu PLA Basic @BBL P1P"),
     ):
         (profiles / kind).mkdir(parents=True, exist_ok=True)
-        (profiles / kind / f"{name}.json").write_text("{}")
+        (profiles / kind / f"{name}.json").write_text(
+            json.dumps({"name": name, "type": kind}), encoding="utf-8"
+        )
     return executable
 
 
@@ -265,12 +272,229 @@ def test_an_unknown_profile_name_is_an_error(tmp_path: Path) -> None:
         resolve_profile("Nonexistent Printer", "machine", executable)
 
 
+# --------------------------------------------------------------------------
+# Profile pairing
+#
+# The failure these guard against: Bambu Studio exits 239 with "process not
+# compatible with printer" when a process preset is handed a machine that is
+# not in its compatible_printers list.
+# --------------------------------------------------------------------------
+
+
+def _install_with_profiles(tmp_path: Path) -> Path:
+    """An installation whose P1S process presets are named for the P1P.
+
+    That is the real trap: the P1S slices with `@BBL P1P` process presets, so a
+    name assembled from the printer's own model is wrong in a way that only the
+    compatible_printers list reveals.
+    """
+    executable = tmp_path / "BambuStudio.app" / "Contents" / "MacOS" / "BambuStudio"
+    executable.parent.mkdir(parents=True)
+    executable.write_text("", encoding="utf-8")
+    bbl = tmp_path / "BambuStudio.app" / "Contents" / "Resources" / "profiles" / "BBL"
+
+    def write(kind: str, name: str, data: dict[str, object]) -> None:
+        (bbl / kind).mkdir(parents=True, exist_ok=True)
+        (bbl / kind / f"{name}.json").write_text(
+            json.dumps({"name": name, **data}), encoding="utf-8"
+        )
+
+    # Machines inherit too: the leaf carries overrides, the base the bulk.
+    write(
+        "machine", "fdm_machine_bbl",
+        {"type": "machine", "instantiation": "false",
+         "printable_height": "250", "gcode_flavor": "marlin"},
+    )
+    write(
+        "machine", "Bambu Lab P1S 0.4 nozzle",
+        {"type": "machine", "inherits": "fdm_machine_bbl", "printer_model": "P1S"},
+    )
+    write("machine", "Bambu Lab A1 mini 0.4 nozzle", {"type": "machine"})
+    # A base preset the user can never pick.
+    write("machine", "fdm_machine_common", {"type": "machine", "instantiation": "false"})
+
+    p1s = ["Bambu Lab P1S 0.4 nozzle", "Bambu Lab P1P 0.4 nozzle"]
+    write("process", "0.20mm Standard @BBL P1P", {"compatible_printers": p1s})
+    write("process", "0.08mm Extra Fine @BBL P1P", {"compatible_printers": p1s})
+    write(
+        "process", "0.20mm Standard @BBL A1M",
+        {"compatible_printers": ["Bambu Lab A1 mini 0.4 nozzle"]},
+    )
+    # Inherits its compatibility rather than declaring it.
+    write("process", "base_process", {"compatible_printers": p1s, "instantiation": "false"})
+    write("process", "0.16mm Optimal @BBL P1P", {"inherits": "base_process"})
+    return executable
+
+
+def test_a_preset_is_merged_with_what_it_inherits(tmp_path: Path) -> None:
+    executable = _install_with_profiles(tmp_path)
+    machine = system_profiles("machine", executable)["Bambu Lab P1S 0.4 nozzle"]
+    flat = flatten_profile(machine)
+
+    assert flat["printer_model"] == "P1S", "the leaf's own settings survive"
+    assert flat["printable_height"] == "250", "the base's settings come along"
+    assert flat["name"] == "Bambu Lab P1S 0.4 nozzle", "the leaf keeps its identity"
+    # Leaving the pointer in sends Bambu Studio after a preset it never loaded.
+    assert "inherits" not in flat
+
+
+def test_flattening_survives_a_cyclic_inherits(tmp_path: Path) -> None:
+    _install_with_profiles(tmp_path)
+    process = tmp_path / "BambuStudio.app" / "Contents" / "Resources"
+    process = process / "profiles" / "BBL" / "process"
+    (process / "loop_a.json").write_text(
+        json.dumps({"name": "loop_a", "inherits": "loop_b"}), encoding="utf-8"
+    )
+    (process / "loop_b.json").write_text(
+        json.dumps({"name": "loop_b", "inherits": "loop_a", "layer_height": "0.2"}),
+        encoding="utf-8",
+    )
+    flat = flatten_profile(process / "loop_a.json")
+    assert flat["name"] == "loop_a"
+    assert flat["layer_height"] == "0.2"
+
+
+def test_the_slicer_is_handed_a_complete_config_not_a_fragment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The regression this guards: passing the installation's own leaf JSON makes
+    # Bambu Studio exit 239 with "process not compatible with printer", because
+    # most of the config is in the presets it inherits from.
+    executable = _install_with_profiles(tmp_path)
+    handed: dict[str, dict[str, object]] = {}
+
+    class Result:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run(command: list[str], **_: object) -> Result:
+        for path in command[command.index("--load-settings") + 1].split(";"):
+            handed[Path(path).stem] = json.loads(Path(path).read_text(encoding="utf-8"))
+        Path(command[command.index("--export-3mf") + 1]).write_text(
+            "sliced", encoding="utf-8"
+        )
+        return Result()
+
+    monkeypatch.setattr("chess2d.bambu.subprocess.run", fake_run)
+    slice_with_bambu_studio(
+        tmp_path / "plate.3mf", tmp_path / "out.gcode.3mf",
+        machine="Bambu Lab P1S 0.4 nozzle", process="0.16mm Optimal @BBL P1P",
+        executable=executable,
+    )
+
+    assert handed["machine"]["printable_height"] == "250", "inherited setting missing"
+    assert handed["machine"]["printer_model"] == "P1S"
+    # The process inherited its compatibility, which must reach the slicer.
+    assert "Bambu Lab P1S 0.4 nozzle" in handed["process"]["compatible_printers"]
+
+
+def test_base_presets_are_not_offered(tmp_path: Path) -> None:
+    executable = _install_with_profiles(tmp_path)
+    machines = system_profiles("machine", executable)
+    assert "Bambu Lab P1S 0.4 nozzle" in machines
+    assert "fdm_machine_common" not in machines, "base presets are not selectable"
+
+
+def test_only_processes_that_accept_the_machine_are_compatible(tmp_path: Path) -> None:
+    executable = _install_with_profiles(tmp_path)
+    found = compatible_processes("Bambu Lab P1S 0.4 nozzle", executable)
+    assert "0.20mm Standard @BBL P1P" in found
+    assert "0.20mm Standard @BBL A1M" not in found
+    # Compatibility declared on a parent preset still counts.
+    assert "0.16mm Optimal @BBL P1P" in found
+
+
+def test_the_resolved_pair_is_one_the_slicer_accepts(tmp_path: Path) -> None:
+    executable = _install_with_profiles(tmp_path)
+    machine, process = resolve_printer_profiles(PRINTERS["Bambu Lab P1S"], executable)
+    assert machine == "Bambu Lab P1S 0.4 nozzle"
+    assert process in compatible_processes(machine, executable)
+
+
+def test_a_process_preference_is_honoured_when_compatible(tmp_path: Path) -> None:
+    executable = _install_with_profiles(tmp_path)
+    _, process = resolve_printer_profiles(
+        PRINTERS["Bambu Lab P1S"], executable, process_preference="0.08mm Extra Fine"
+    )
+    assert process == "0.08mm Extra Fine @BBL P1P"
+
+
+def test_an_impossible_preference_falls_back_to_something_compatible(
+    tmp_path: Path,
+) -> None:
+    executable = _install_with_profiles(tmp_path)
+    machine, process = resolve_printer_profiles(
+        PRINTERS["Bambu Lab P1S"], executable, process_preference="0.20mm Standard @BBL A1M"
+    )
+    # Never hand back the incompatible one just because it was asked for.
+    assert process != "0.20mm Standard @BBL A1M"
+    assert process in compatible_processes(machine, executable)
+
+
+def test_without_an_installation_the_table_is_used_as_given(tmp_path: Path) -> None:
+    printer = PRINTERS["Bambu Lab P1S"]
+    machine, process = resolve_printer_profiles(printer, tmp_path / "nothing")
+    assert (machine, process) == (printer.machine_profile, printer.process_profile)
+
+
+def test_an_incompatible_pair_is_refused_before_the_slicer_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    executable = _install_with_profiles(tmp_path)
+
+    def fail(*_: object, **__: object) -> None:
+        raise AssertionError("Bambu Studio must not be run with a rejected pair")
+
+    monkeypatch.setattr("chess2d.bambu.subprocess.run", fail)
+    with pytest.raises(BambuStudioError) as caught:
+        slice_with_bambu_studio(
+            tmp_path / "plate.3mf", tmp_path / "out.gcode.3mf",
+            machine="Bambu Lab P1S 0.4 nozzle",
+            process="0.20mm Standard @BBL A1M",
+            executable=executable,
+        )
+    # The message has to say what would work, not just what did not.
+    assert "0.20mm Standard @BBL P1P" in str(caught.value)
+
+
+def test_an_exported_profile_path_is_the_users_business(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A .json path is a preset the user exported themselves; we cannot second
+    # guess its compatibility, so the pairing check must stand aside.
+    executable = _install_with_profiles(tmp_path)
+    mine = tmp_path / "my_process.json"
+    mine.write_text("{}", encoding="utf-8")
+    ran: list[list[str]] = []
+
+    class Result:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run(command: list[str], **_: object) -> Result:
+        ran.append(command)
+        Path(command[command.index("--export-3mf") + 1]).write_text(
+            "sliced", encoding="utf-8"
+        )
+        return Result()
+
+    monkeypatch.setattr("chess2d.bambu.subprocess.run", fake_run)
+    slice_with_bambu_studio(
+        tmp_path / "plate.3mf", tmp_path / "out.gcode.3mf",
+        machine="Bambu Lab P1S 0.4 nozzle", process=mine, executable=executable,
+    )
+    assert ran, "the slice should have been attempted"
+
+
 def test_the_slice_command_carries_the_profiles_and_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     executable = _fake_install(tmp_path)
     output = tmp_path / "plate.gcode.3mf"
     recorded: list[list[str]] = []
+    presets: list[str] = []
 
     class Result:
         returncode = 0
@@ -279,6 +503,12 @@ def test_the_slice_command_carries_the_profiles_and_output(
 
     def fake_run(command: list[str], **_: object) -> Result:
         recorded.append(command)
+        # The profiles are written to a scratch directory that is cleaned up on
+        # the way out, so read them while the "slicer" is running.
+        for flag in ("--load-settings", "--load-filaments"):
+            for path in command[command.index(flag) + 1].split(";"):
+                data = json.loads(Path(path).read_text(encoding="utf-8"))
+                presets.append(str(data.get("name", "")))
         # Stand in for the slicer: the wrapper checks the file was written.
         Path(command[command.index("--export-3mf") + 1]).write_text(
             "sliced", encoding="utf-8"
@@ -302,8 +532,14 @@ def test_the_slice_command_carries_the_profiles_and_output(
     assert command[command.index("--export-3mf") + 1] == str(output)
     # Machine and process travel together in one --load-settings argument.
     settings = command[command.index("--load-settings") + 1]
-    assert settings.count(";") == 1 and settings.endswith("P1P.json")
-    assert command[command.index("--load-filaments") + 1].endswith("Basic @BBL P1P.json")
+    assert settings.count(";") == 1
+    # The files are flattened copies, so identity is checked by preset name
+    # rather than by filename.
+    assert presets == [
+        "Bambu Lab P1S 0.4 nozzle",
+        "0.20mm Standard @BBL P1P",
+        "Bambu PLA Basic @BBL P1P",
+    ]
 
 
 def test_a_failed_slice_reports_the_slicer_output(

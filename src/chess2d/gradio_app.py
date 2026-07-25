@@ -24,6 +24,7 @@ from .bambu import (
     BambuStudioError,
     export_plate_3mf,
     find_bambu_studio,
+    resolve_printer_profiles,
     slice_with_bambu_studio,
 )
 from .estimate import DEFAULT_MATERIAL, MATERIALS, PrintSettings
@@ -383,15 +384,26 @@ def build_bambu(mode_label: str, style_label: str, board_label: str, figure_labe
         )
 
     if do_slice:
+        # Blank fields mean "work it out": the installed profile tree decides
+        # which presets pair, since the table's names are only a starting guess
+        # and Bambu renames presets between releases.
+        chosen_machine, chosen_process = resolve_printer_profiles(
+            printer, process_preference=process.strip() or None
+        )
         try:
             path = slice_with_bambu_studio(
                 path,
                 out_dir / f"{stem}.gcode.3mf",
-                machine=machine.strip() or printer.machine_profile,
-                process=process.strip() or printer.process_profile,
+                machine=machine.strip() or chosen_machine,
+                process=process.strip() or chosen_process,
                 filament=filament.strip() or None,
             )
-            lines.append(f"**Sliced** for the {printer.name}: `{path.name}` is printer-ready.")
+            used = machine.strip() or chosen_machine
+            used_process = process.strip() or chosen_process or "the printer's default"
+            lines.append(
+                f"**Sliced** with `{used}` + `{used_process}`: "
+                f"`{path.name}` is printer-ready."
+            )
         except BambuStudioError as error:
             lines.append(
                 f"**Not sliced.** {error} \n"

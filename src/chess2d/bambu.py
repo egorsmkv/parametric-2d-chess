@@ -20,13 +20,16 @@ the question the user actually has, which is "does one plate hold a whole set?".
 
 from __future__ import annotations
 
+import json
 import os
 import platform
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 from build123d import Mesher, Part, Pos, Unit
 
@@ -47,14 +50,18 @@ __all__ = [
     "PlateLayout",
     "Printer",
     "arrange_plate",
+    "compatible_processes",
     "export_pieces_3mf",
     "export_plate_3mf",
     "find_bambu_studio",
+    "flatten_profile",
     "make_plate",
     "plate_parts",
     "profiles_dir",
+    "resolve_printer_profiles",
     "resolve_profile",
     "slice_with_bambu_studio",
+    "system_profiles",
 ]
 
 
@@ -65,14 +72,23 @@ __all__ = [
 
 @dataclass(frozen=True)
 class Printer:
-    """A Bambu machine: its usable plate and the system profile that slices it."""
+    """A Bambu machine: its usable plate and the system profiles that slice it.
+
+    Both profile names are *starting points*, not gospel. Bambu renames presets
+    between releases, and a process preset only slices for the machines listed
+    in its own ``compatible_printers``; pairing the wrong two is what makes the
+    CLI exit non-zero with "process not compatible with printer". When an
+    installation is present, :func:`resolve_printer_profiles` checks these
+    against its real profile tree and substitutes a compatible pair.
+    """
 
     name: str
     #: Usable build-plate X/Y in millimetres.
     plate: tuple[float, float]
     #: Name of the Bambu Studio system machine profile (``--load-settings``).
     machine_profile: str
-    #: Matching system process profile, at the default 0.4 mm nozzle.
+    #: Preferred process preset. Matched by prefix against the processes the
+    #: installed tree says are compatible, so "0.20mm Standard" is enough.
     process_profile: str
 
 
@@ -485,6 +501,202 @@ def resolve_profile(
     raise BambuStudioError(f"no {kind} profile named {profile!r} under {root}")
 
 
+# --------------------------------------------------------------------------
+# Reading the installed profile tree
+#
+# Preset names and their pairings change between Bambu Studio releases, so
+# anything hardcoded here rots. These helpers ask the installation instead.
+# --------------------------------------------------------------------------
+
+
+def system_profiles(kind: str, executable: str | Path | None = None) -> dict[str, Path]:
+    """Every instantiable system preset of one ``kind``, by preset name.
+
+    Base presets (``"instantiation": "false"``) are the halves of the
+    inheritance chain a user can never select, so they are left out.
+    """
+    root = profiles_dir(executable)
+    if root is None:
+        return {}
+
+    found: dict[str, Path] = {}
+    for vendor in sorted(root.iterdir()):
+        if not vendor.is_dir():
+            continue
+        for path in sorted((vendor / kind).glob("*.json")):
+            data = _read_profile(path)
+            if data is None or str(data.get("instantiation", "true")).lower() == "false":
+                continue
+            found[str(data.get("name", path.stem))] = path
+    return found
+
+
+def _read_profile(path: Path) -> dict[str, Any] | None:
+    """Parse one preset, or ``None`` if it is unreadable.
+
+    A single malformed file in a vendor tree we do not control must not take
+    down profile discovery for everything else.
+    """
+    try:
+        with path.open(encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+#: Guards against a cyclic or absurdly deep ``inherits`` chain.
+_MAX_INHERITANCE = 12
+
+
+def _parent_profile(path: Path, parent: str) -> Path | None:
+    """The file a preset's ``inherits`` refers to, if it can be located."""
+    sibling = path.parent / f"{parent}.json"
+    if sibling.is_file():
+        return sibling
+    # Some vendor trees file their base presets in a subdirectory.
+    return next(path.parent.rglob(f"{parent}.json"), None)
+
+
+def _profile_chain(path: Path) -> list[dict[str, Any]]:
+    """A preset and its ancestors, root first, so a merge overrides correctly."""
+    chain: list[dict[str, Any]] = []
+    seen: set[Path] = set()
+    current: Path | None = path
+
+    while current is not None and current not in seen and len(chain) < _MAX_INHERITANCE:
+        seen.add(current)
+        data = _read_profile(current)
+        if data is None:
+            break
+        chain.append(data)
+        parent = data.get("inherits")
+        current = _parent_profile(current, str(parent)) if parent else None
+
+    return list(reversed(chain))
+
+
+def flatten_profile(path: Path) -> dict[str, Any]:
+    """One system preset merged with everything it inherits from.
+
+    Bambu's system presets are fragments: a leaf like "0.20mm Standard @BBL P1P"
+    carries only its own overrides and an ``inherits`` pointer. Handing such a
+    fragment to ``--load-settings`` gives the slicer a config with most of its
+    settings missing, which it reports as the preset being incompatible with the
+    printer. Merging the chain first is what makes the CLI usable with the
+    profiles that ship inside the installation.
+    """
+    merged: dict[str, Any] = {}
+    for data in _profile_chain(path):
+        merged.update(data)
+    # The chain is already resolved; leaving the pointer in would send Bambu
+    # Studio looking for a preset that was never loaded.
+    merged.pop("inherits", None)
+    return merged
+
+
+
+
+def compatible_processes(
+    machine: str, executable: str | Path | None = None
+) -> list[str]:
+    """Process presets the installation says can slice for ``machine``.
+
+    A preset that names no compatible printers at all is included: silence is
+    not a refusal, and excluding it would leave callers with nothing to try.
+    """
+    matches: list[str] = []
+    for name, path in system_profiles("process", executable).items():
+        printers = flatten_profile(path).get("compatible_printers")
+        if not printers or machine in printers:
+            matches.append(name)
+    return matches
+
+
+def resolve_printer_profiles(
+    printer: Printer,
+    executable: str | Path | None = None,
+    process_preference: str | None = None,
+) -> tuple[str, str | None]:
+    """Machine and process preset names that actually go together.
+
+    Falls back to :class:`Printer`'s own guesses when no installation can be
+    read -- there is then nothing to check them against, and letting Bambu
+    Studio complain is better than refusing to try.
+    """
+    machines = system_profiles("machine", executable)
+    if not machines:
+        return printer.machine_profile, printer.process_profile
+
+    machine = printer.machine_profile
+    if machine not in machines:
+        # Preset names carry the nozzle ("Bambu Lab P1S 0.4 nozzle"), and the
+        # model name is the stable part of them.
+        candidates = [name for name in machines if printer.name in name]
+        preferred = [name for name in candidates if "0.4" in name]
+        if not candidates:
+            return printer.machine_profile, printer.process_profile
+        machine = (preferred or candidates)[0]
+
+    processes = compatible_processes(machine, executable)
+    if not processes:
+        return machine, None
+
+    preference = process_preference or printer.process_profile
+    exact = [name for name in processes if name == preference]
+    prefixed = [name for name in processes if name.startswith(preference)]
+    return machine, (exact or prefixed or processes)[0]
+
+
+def _prepare_profile(
+    profile: str | Path, kind: str, executable: str | Path, scratch: Path
+) -> Path:
+    """The file to hand ``--load-settings`` for one preset.
+
+    A path the caller supplied is passed through untouched -- a preset exported
+    from Bambu Studio is already complete. A system preset named by the caller
+    is flattened into ``scratch`` first, because the file in the installation is
+    only a fragment (see :func:`flatten_profile`).
+    """
+    source = resolve_profile(profile, kind, executable)
+    if Path(str(profile)).suffix == ".json" or Path(str(profile)).is_file():
+        return source
+
+    flattened = scratch / f"{kind}.json"
+    flattened.write_text(json.dumps(flatten_profile(source)), encoding="utf-8")
+    return flattened
+
+
+def _check_pairing(
+    machine: str | Path | None,
+    process: str | Path | None,
+    executable: str | Path,
+) -> None:
+    """Reject an incompatible machine/process pair before the CLI does.
+
+    Bambu Studio's own answer to this is exit 239 and a log line reading
+    "process not compatible with printer", which tells the user nothing about
+    what would have worked. Only preset *names* can be checked -- a path points
+    at a preset the user exported themselves, and its compatibility is theirs
+    to judge.
+    """
+    if not machine or not process:
+        return
+    if Path(str(process)).suffix == ".json" or Path(str(machine)).suffix == ".json":
+        return
+
+    allowed = compatible_processes(str(machine), executable)
+    if not allowed or str(process) in allowed:
+        return
+    shortlist = ", ".join(repr(name) for name in allowed[:5])
+    raise BambuStudioError(
+        f"the process profile {str(process)!r} does not list {str(machine)!r} among "
+        f"its compatible printers, so Bambu Studio would refuse to slice it. "
+        f"Compatible here: {shortlist}"
+        + (f" (and {len(allowed) - 5} more)" if len(allowed) > 5 else "")
+    )
+
+
 def slice_with_bambu_studio(
     model: str | Path,
     output: str | Path,
@@ -516,32 +728,40 @@ def slice_with_bambu_studio(
     out = Path(output)
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    settings = [
-        str(resolve_profile(value, kind, binary))
-        for value, kind in ((machine, "machine"), (process, "process"))
-        if value
-    ]
+    _check_pairing(machine, process, binary)
 
-    command: list[str] = [str(binary)]
-    if orient:
-        command.append("--orient")
-    if arrange:
-        command += ["--arrange", "1"]
-    if settings:
-        command += ["--load-settings", ";".join(settings)]
-    if filament:
-        command += ["--load-filaments", str(resolve_profile(filament, "filament", binary))]
-    # --slice 0 slices every plate in the project.
-    command += ["--slice", "0", "--export-3mf", str(out), str(model)]
+    with tempfile.TemporaryDirectory(prefix="chess2d_profiles_") as scratch:
+        settings = [
+            str(_prepare_profile(value, kind, binary, Path(scratch)))
+            for value, kind in ((machine, "machine"), (process, "process"))
+            if value
+        ]
 
-    try:
-        result = subprocess.run(
-            command, capture_output=True, text=True, timeout=timeout, check=False
-        )
-    except OSError as error:  # pragma: no cover - depends on the local install
-        raise BambuStudioError(f"could not run Bambu Studio: {error}") from error
-    except subprocess.TimeoutExpired as error:  # pragma: no cover
-        raise BambuStudioError(f"Bambu Studio timed out after {timeout:.0f}s") from error
+        command: list[str] = [str(binary)]
+        if orient:
+            command.append("--orient")
+        if arrange:
+            command += ["--arrange", "1"]
+        if settings:
+            command += ["--load-settings", ";".join(settings)]
+        if filament:
+            command += [
+                "--load-filaments",
+                str(_prepare_profile(filament, "filament", binary, Path(scratch))),
+            ]
+        # --slice 0 slices every plate in the project.
+        command += ["--slice", "0", "--export-3mf", str(out), str(model)]
+
+        try:
+            result = subprocess.run(
+                command, capture_output=True, text=True, timeout=timeout, check=False
+            )
+        except OSError as error:  # pragma: no cover - depends on the local install
+            raise BambuStudioError(f"could not run Bambu Studio: {error}") from error
+        except subprocess.TimeoutExpired as error:  # pragma: no cover
+            raise BambuStudioError(
+                f"Bambu Studio timed out after {timeout:.0f}s"
+            ) from error
 
     if result.returncode != 0 or not out.exists():
         # The CLI reports most failures on stdout, not stderr.
