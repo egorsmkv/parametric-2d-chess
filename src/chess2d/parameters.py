@@ -48,15 +48,23 @@ class PieceStyle(Enum):
     * ``STAUNTON`` -- the 1849 tournament standard; the project default.
     * ``REGENCE`` -- early 19th-c. French: very tall, slender, small heads.
     * ``SELENUS`` -- 17th-19th-c. German: tiered "pagoda" stacks of discs.
+    * ``ST_GEORGE`` -- the pre-Staunton English standard: bulbous, ring-heavy.
+    * ``EDINBURGH`` -- the abstract "North Upright" turned columns.
     * ``BAUHAUS`` -- Hartwig, 1924: pure primitives whose shape encodes the move.
+    * ``MAN_RAY`` -- the 1920s artist's set: sphere, cube, cone, scroll, flask.
     * ``GLYPH`` -- the flat figurine symbols used in printed chess diagrams.
+    * ``LEWIS`` -- the 12th-c. Norse carvings from the Isle of Lewis: figural.
     """
 
     STAUNTON = "staunton"
     REGENCE = "regence"
     SELENUS = "selenus"
+    ST_GEORGE = "st_george"
+    EDINBURGH = "edinburgh"
     BAUHAUS = "bauhaus"
+    MAN_RAY = "man_ray"
     GLYPH = "glyph"
+    LEWIS = "lewis"
 
 
 class FigureMode(Enum):

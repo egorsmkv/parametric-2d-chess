@@ -13,7 +13,7 @@ Figure mode (default two-sided):
 
 Piece style (default ``staunton``):
 
-* ``--style staunton|regence|selenus|bauhaus|glyph``
+* ``--style staunton|regence|selenus|st_george|edinburgh|bauhaus|man_ray|glyph|lewis``
 
 Sizes (both default to ``medium``):
 

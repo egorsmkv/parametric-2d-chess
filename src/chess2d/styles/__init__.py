@@ -20,7 +20,17 @@ from ..geometry import (
     TWO_SIDED_NECK_FRACTION,
 )
 from ..parameters import PieceStyle, PieceType
-from . import bauhaus, glyph, regence, selenus, staunton
+from . import (
+    bauhaus,
+    edinburgh,
+    glyph,
+    lewis,
+    man_ray,
+    regence,
+    selenus,
+    st_george,
+    staunton,
+)
 
 Generator = Callable[..., Sketch]
 
@@ -75,6 +85,23 @@ STYLES: dict[PieceStyle, StyleSpec] = {
         ),
         module=selenus,
     ),
+    PieceStyle.ST_GEORGE: StyleSpec(
+        label="St. George",
+        note=(
+            "The pre-Staunton English standard: heavier and more bulbous, with "
+            "pronounced collar rings and rounded ball finials."
+        ),
+        module=st_george,
+    ),
+    PieceStyle.EDINBURGH: StyleSpec(
+        label="Edinburgh",
+        note=(
+            "The abstract 'North Upright' style: plain cylindrical columns "
+            "stepped with sharp discs, the rank read from height and cap."
+        ),
+        module=edinburgh,
+        neck_fraction=0.5,
+    ),
     PieceStyle.BAUHAUS: StyleSpec(
         label="Bauhaus",
         note=(
@@ -88,6 +115,31 @@ STYLES: dict[PieceStyle, StyleSpec] = {
         fused_overlap=0.6,
         two_sided_border=3.5,
         neck_fraction=0.32,
+    ),
+    PieceStyle.MAN_RAY: StyleSpec(
+        label="Man Ray",
+        note=(
+            "After the artist's 1920s set: sphere, cube, cone, scrolled knight, "
+            "coiled queen and stepped-pyramid king. Sculpture, not diagram."
+        ),
+        module=man_ray,
+        # Whole-shape identity, like the other geometric style.
+        fused_keep=0.98,
+        fused_overlap=0.6,
+        two_sided_border=3.5,
+        neck_fraction=0.34,
+    ),
+    PieceStyle.LEWIS: StyleSpec(
+        label="Isle of Lewis",
+        note=(
+            "After the 12th-century Norse carvings: squat figural pieces — a "
+            "seated king and queen, a mitred bishop, a rider knight and a "
+            "shield-biting warder."
+        ),
+        module=lewis,
+        # Figural pieces read from their whole outline; keep most when fusing.
+        fused_keep=0.9,
+        neck_fraction=0.5,
     ),
     PieceStyle.GLYPH: StyleSpec(
         label="Diagram glyphs",

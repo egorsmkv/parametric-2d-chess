@@ -53,7 +53,10 @@ def test_payload_bundles_the_package(payload: Path) -> None:
     # The piece styles live in a subpackage; copytree must have recursed into it.
     styles = package / "styles"
     assert (styles / "__init__.py").is_file(), "chess2d/styles/ missing from payload"
-    for style in ("staunton", "regence", "selenus", "bauhaus", "glyph"):
+    for style in (
+        "staunton", "regence", "selenus", "st_george", "edinburgh",
+        "bauhaus", "man_ray", "glyph", "lewis",
+    ):
         assert (styles / f"{style}.py").is_file(), f"chess2d/styles/{style}.py missing"
 
 

@@ -99,8 +99,12 @@ the `piece_style` field on [`ChessStyle`](src/chess2d/parameters.py) (a
 | `STAUNTON` *(default)* | the 1849 tournament standard: turned bodies, flared foot, beaded collar |
 | `REGENCE` | early 19th-c. French: much taller and thinner, small heads |
 | `SELENUS` | tiered German "pagoda" stacks of discs; rank read from tier count |
+| `ST_GEORGE` | the pre-Staunton English standard: heavier, bulbous, ring-heavy |
+| `EDINBURGH` | the abstract "North Upright" style: plain stepped columns |
 | `BAUHAUS` | Hartwig 1924: the shape states the move (square rook, diamond bishop, circle queen) |
+| `MAN_RAY` | the artist's 1920s set: sphere, cube, cone, scrolled knight, coiled queen |
 | `GLYPH` | the flat figurine symbols from printed chess diagrams |
+| `LEWIS` | the 12th-c. Isle of Lewis carvings: figural seated king/queen, rider knight |
 
 Every style provides all six pieces in all three figure modes and is a single
 connected face, so anything the default supports (SVG/DXF/STEP/STL, the size
