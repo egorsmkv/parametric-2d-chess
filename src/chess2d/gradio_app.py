@@ -16,6 +16,16 @@ from typing import Any
 import gradio as gr
 
 from .assembly import make_initial_position
+from .bambu import (
+    DEFAULT_PRINTER,
+    DEFAULT_TOLERANCE,
+    PLATE_CONTENTS,
+    PRINTERS,
+    BambuStudioError,
+    export_plate_3mf,
+    find_bambu_studio,
+    slice_with_bambu_studio,
+)
 from .estimate import DEFAULT_MATERIAL, MATERIALS, PrintSettings
 from .export import export_composition_svg, export_piece_svg, generate_all
 from .parameters import (
@@ -313,6 +323,83 @@ def build_report(mode_label: str, style_label: str, board_label: str,
     return str(path)
 
 
+def _bambu_status() -> str:
+    """One line on whether this machine can slice, shown under the controls."""
+    binary = find_bambu_studio()
+    if binary is None:
+        return (
+            "Bambu Studio was **not found** on this machine, so only the generic "
+            "`.3mf` can be produced — open it in Bambu Studio and slice it there. "
+            "(Set `$BAMBU_STUDIO` if it is installed somewhere unusual.)"
+        )
+    return f"Bambu Studio found at `{binary}` — slicing to `.gcode.3mf` is available."
+
+
+def _profile_hints(printer_name: str) -> tuple[Any, Any]:
+    """Re-point the machine/process placeholders at the chosen printer."""
+    printer = PRINTERS[printer_name]
+    return (
+        gr.update(placeholder=printer.machine_profile),
+        gr.update(placeholder=printer.process_profile),
+    )
+
+
+def build_bambu(mode_label: str, style_label: str, board_label: str, figure_label: str,
+                piece_thickness: float, board_thickness: float,
+                printer_name: str, contents_label: str, tolerance: float,
+                do_slice: bool, machine: str, process: str,
+                filament: str) -> tuple[str, str]:
+    """Lay the pieces out on a Bambu build plate and write the 3MF.
+
+    Returns the file to download and a status line. With ``do_slice`` the plate
+    is handed to the Bambu Studio CLI for a printer-ready ``.gcode.3mf``; if
+    that is unavailable or fails, the generic plate is returned instead and the
+    status says so rather than silently passing off an unsliced file.
+    """
+    style = _style(
+        mode_label, style_label, board_label, figure_label,
+        piece_thickness, board_thickness,
+    )
+    printer = PRINTERS[printer_name]
+    contents = PLATE_CONTENTS[contents_label]
+    out_dir = _fresh_dir("bambu")
+    stem = f"{_config_stem(style, board_label, figure_label)}_{contents.value}-plate"
+
+    path, layout = export_plate_3mf(
+        out_dir / f"{stem}.3mf",
+        style=style,
+        contents=contents,
+        printer=printer,
+        tolerance=float(tolerance),
+    )
+    lines = [f"**Plate.** {layout.summary()}."]
+    if not layout.fits:
+        lines.append(
+            "Too big for one plate — print it in batches, pick a smaller board "
+            "size, or let Bambu Studio split it across plates."
+        )
+
+    if do_slice:
+        try:
+            path = slice_with_bambu_studio(
+                path,
+                out_dir / f"{stem}.gcode.3mf",
+                machine=machine.strip() or printer.machine_profile,
+                process=process.strip() or printer.process_profile,
+                filament=filament.strip() or None,
+            )
+            lines.append(f"**Sliced** for the {printer.name}: `{path.name}` is printer-ready.")
+        except BambuStudioError as error:
+            lines.append(
+                f"**Not sliced.** {error} \n"
+                "The generic `.3mf` below is unsliced — open it in Bambu Studio."
+            )
+    else:
+        lines.append("Generic 3MF: open it in Bambu Studio, then slice.")
+
+    return str(path), "\n\n".join(lines)
+
+
 def build_files(mode_label: str, style_label: str, board_label: str,
                 figure_label: str, piece_thickness: float, board_thickness: float,
                 with_solids: bool,
@@ -324,7 +411,11 @@ def build_files(mode_label: str, style_label: str, board_label: str,
         piece_thickness, board_thickness,
     )
     out_dir = _fresh_dir("build")
-    generate_all(output_dir=out_dir, style=style, with_solids=bool(with_solids))
+    # 3MF is a solid format, so it follows the same switch as STEP/STL.
+    generate_all(
+        output_dir=out_dir, style=style,
+        with_solids=bool(with_solids), with_3mf=bool(with_solids),
+    )
 
     # The printing estimate travels with the models it describes.
     settings = _print_settings(
@@ -344,7 +435,8 @@ def build_demo() -> gr.Blocks:
             "# ♟️ 2D Chess Set Generator\n"
             "Parametric chessboard and flat piece silhouettes, generated with "
             "[build123d](https://build123d.readthedocs.io). Configure it, watch the "
-            "board update, then download **SVG / DXF / STEP / STL**."
+            "board update, then download **SVG / DXF / STEP / STL / 3MF** — "
+            "including a print plate for Bambu Lab machines."
         )
         with gr.Row():
             with gr.Column(scale=2, min_width=280):
@@ -415,6 +507,56 @@ def build_demo() -> gr.Blocks:
                     )
                     report_btn: Any = gr.Button("Material report (PDF)")
                     report_file = gr.File(label="Your report (PDF)", height=100)
+                with gr.Accordion("Bambu Lab (3MF)", open=False):
+                    gr.Markdown(
+                        "<small>Lay the pieces out on a Bambu build plate and export "
+                        "a 3MF. Uses the piece style, size and thickness chosen "
+                        "above.</small>"
+                    )
+                    printer = gr.Dropdown(
+                        choices=list(PRINTERS.keys()),
+                        value=DEFAULT_PRINTER,
+                        label="Printer",
+                        info="Sets the plate size the layout is checked against.",
+                    )
+                    plate_contents = gr.Radio(
+                        choices=list(PLATE_CONTENTS.keys()),
+                        value=next(iter(PLATE_CONTENTS)),
+                        label="Plate contents",
+                        info="Both players share one shape per piece, in two colours.",
+                    )
+                    tolerance = gr.Slider(
+                        0.005, 0.1, value=DEFAULT_TOLERANCE, step=0.005,
+                        label="Mesh tolerance (mm)",
+                        info="How closely the mesh follows the curved edges. Lower is "
+                             "finer; 0.02 is ample for FDM.",
+                    )
+                    do_slice = gr.Checkbox(
+                        value=False,
+                        label="Slice with Bambu Studio (printer-ready .gcode.3mf)",
+                        info="Needs Bambu Studio installed on the machine running "
+                             "this app.",
+                    )
+                    # Placeholders show the profiles a blank field falls back to;
+                    # they follow the printer selection (see _profile_hints).
+                    machine_profile = gr.Textbox(
+                        label="Machine profile",
+                        placeholder=PRINTERS[DEFAULT_PRINTER].machine_profile,
+                        info="A system profile name or a path to a .json. Blank uses "
+                             "the printer's default.",
+                    )
+                    process_profile = gr.Textbox(
+                        label="Process profile",
+                        placeholder=PRINTERS[DEFAULT_PRINTER].process_profile,
+                        info="Layer height and quality preset.",
+                    )
+                    filament_profile = gr.Textbox(
+                        label="Filament profile", placeholder="Bambu PLA Basic @BBL P1P",
+                        info="Optional; blank leaves Bambu Studio's current filament.",
+                    )
+                    bambu_btn: Any = gr.Button("Bambu plate (3MF)")
+                    bambu_file = gr.File(label="Your plate (3MF)", height=100)
+                    bambu_status = gr.Markdown(_bambu_status())
 
                 generate_btn: Any = gr.Button(
                     "Generate files (ZIP)", variant="primary", size="lg"
@@ -422,7 +564,7 @@ def build_demo() -> gr.Blocks:
                 download = gr.File(label="Your download", height=120)
                 gr.Markdown(
                     "<small>The archive holds `svg/`, `dxf/`, the printing estimate "
-                    "PDF and, with solids enabled, `step/` + `stl/`.</small>"
+                    "PDF and, with solids enabled, `step/` + `stl/` + `3mf/`.</small>"
                 )
             with gr.Column(scale=3, min_width=360):
                 preview = gr.HTML(value=_PLACEHOLDER, label="Preview")
@@ -448,6 +590,20 @@ def build_demo() -> gr.Blocks:
             build_report,
             inputs=[*inputs, *print_inputs],
             outputs=report_file,
+        )
+        bambu_inputs: list[Any] = [
+            printer, plate_contents, tolerance, do_slice,
+            machine_profile, process_profile, filament_profile,
+        ]
+        bambu_btn.click(
+            build_bambu,
+            inputs=[*inputs, *bambu_inputs],
+            outputs=[bambu_file, bambu_status],
+        )
+        printer.change(
+            _profile_hints,
+            inputs=printer,
+            outputs=[machine_profile, process_profile],
         )
         generate_btn.click(
             build_files,

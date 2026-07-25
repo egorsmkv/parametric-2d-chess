@@ -2,6 +2,9 @@
 
 Every function is pure output: it takes geometry plus a path and writes a file.
 No geometry is generated here beyond grouping already-built shapes.
+
+3MF lives next door in :mod:`chess2d.bambu`, which also lays the pieces out on a
+build plate; :func:`generate_all` can include one via ``with_3mf``.
 """
 
 from __future__ import annotations
@@ -203,8 +206,14 @@ def generate_all(
     output_dir: str | Path = "output",
     style: ChessStyle | None = None,
     with_solids: bool = True,
+    with_3mf: bool = False,
 ) -> list[Path]:
-    """Regenerate every deliverable under ``output_dir``. Returns written paths."""
+    """Regenerate every deliverable under ``output_dir``. Returns written paths.
+
+    ``with_3mf`` adds a meshed 3MF of the six pieces, ready to open in Bambu
+    Studio (or any other slicer) -- see :mod:`chess2d.bambu` for print plates
+    holding a whole set.
+    """
     if style is None:
         style = ChessStyle()
     root = Path(output_dir)
@@ -261,6 +270,16 @@ def generate_all(
             written.append(export_piece_stl(
                 pt, stl_dir / f"{pt.value}.stl", style.piece_thickness, style.piece_scale,
                 mode=style.figure_mode, square_size=style.square_size,
+            style=style.piece_style))
+
+    if with_3mf:
+        # Imported here: the 3MF writer is only needed on this branch, and the
+        # module reaches back into this one's siblings for the plate layout.
+        from .bambu import export_pieces_3mf  # noqa: PLC0415
+
+        written.append(export_pieces_3mf(
+            root / "3mf" / "pieces.3mf", style.piece_thickness, style.piece_scale,
+            mode=style.figure_mode, square_size=style.square_size,
             style=style.piece_style))
 
     return written

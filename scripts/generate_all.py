@@ -5,6 +5,11 @@ Usage::
 
     python scripts/generate_all.py [output_dir] [options]
 
+Formats:
+
+* ``--no-solids`` -- skip the STEP/STL extrusions.
+* ``--3mf``       -- also mesh the pieces to ``3mf/pieces.3mf`` for a slicer.
+
 Figure mode (default two-sided):
 
 * ``--single-sided`` -- plain one-orientation silhouettes.
@@ -74,6 +79,7 @@ def main(argv: list[str]) -> int:
     skip = {argv[i + 1] for i, a in enumerate(argv) if a in flag_values and i + 1 < len(argv)}
     args = [a for a in argv if not a.startswith("-") and a not in skip]
     with_solids = "--no-solids" not in argv
+    with_3mf = "--3mf" in argv
     if "--single-sided" in argv:
         mode = FigureMode.SINGLE
     elif "--fused" in argv:
@@ -91,10 +97,12 @@ def main(argv: list[str]) -> int:
     )
     print(
         f"Generating chess set into {output_dir!r} "
-        f"(solids={with_solids}, style={piece_style.value}, "
+        f"(solids={with_solids}, 3mf={with_3mf}, style={piece_style.value}, "
         f"figure_mode={mode.value}, board={board_name}, figures={figure_name}) ..."
     )
-    written = generate_all(output_dir=output_dir, style=style, with_solids=with_solids)
+    written = generate_all(
+        output_dir=output_dir, style=style, with_solids=with_solids, with_3mf=with_3mf
+    )
     for path in written:
         print(f"  wrote {path}")
     print(f"Done: {len(written)} files.")

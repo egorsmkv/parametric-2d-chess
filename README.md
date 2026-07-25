@@ -28,12 +28,14 @@ output/
 ├── svg/   board.svg, <piece>.svg ×6, initial_position.svg
 ├── dxf/   board.dxf, pieces.dxf, initial_position.dxf
 ├── step/  board.step, flat_pieces.step
-└── stl/   <piece>.stl ×6
+├── stl/   <piece>.stl ×6
+└── 3mf/   pieces.3mf            (with --3mf)
 ```
 
 Flags:
 
 * `--no-solids` — skip the STEP/STL extrusions.
+* `--3mf` — also write a meshed 3MF for slicers (see *Bambu Lab* below).
 * `--single-sided` — plain one-orientation silhouettes.
 * `--fused` — compact point-symmetric figures readable the same way by everyone.
 * `--style staunton|regence|selenus|bauhaus|glyph` — the piece design (default `staunton`).
@@ -107,7 +109,7 @@ the `piece_style` field on [`ChessStyle`](src/chess2d/parameters.py) (a
 | `LEWIS` | the 12th-c. Isle of Lewis carvings: figural seated king/queen, rider knight |
 
 Every style provides all six pieces in all three figure modes and is a single
-connected face, so anything the default supports (SVG/DXF/STEP/STL, the size
+connected face, so anything the default supports (SVG/DXF/STEP/STL/3MF, the size
 presets, the material report) works for every style. The generators live one per
 file in [`src/chess2d/styles/`](src/chess2d/styles); the
 [`STYLES`](src/chess2d/styles/__init__.py) registry maps each to its label and
@@ -138,8 +140,9 @@ Then open the printed URL (default <http://127.0.0.1:7860>). The app lets you:
   strip (board, square, fill, tallest piece, thickness) and per-piece thumbnails
   labelled with their millimetre dimensions;
 * get a **3D-printing material estimate** as a PDF (see below);
+* export a **Bambu Lab print plate** as 3MF, optionally sliced (see below);
 * **download** a ZIP with `svg/`, `dxf/`, the estimate PDF and (optionally)
-  `step/` + `stl/`.
+  `step/` + `stl/` + `3mf/`.
 
 The preview follows the active Gradio theme in light and dark mode, and reflows
 down to phone widths.
@@ -185,6 +188,58 @@ from chess2d import ChessStyle, PrintSettings, estimate_set
 estimate = estimate_set(ChessStyle(), PrintSettings(material="PETG", infill=0.3))
 print(estimate.mass_range_g(), estimate.budget_mass_g())
 ```
+
+## Bambu Lab (3MF)
+
+Under **Bambu Lab (3MF)** in the app you pick a printer, choose what goes on the
+plate — one of each piece (6), one player's pieces (16) or a full set (32) — and
+get a 3MF back. Both players share one physical shape per piece (every figure
+mode reads from either end of the board), so a full set is just each piece
+printed twice, in two filament colours.
+
+There are two different targets, and the app is explicit about which one you got:
+
+| | |
+| --- | --- |
+| **`.3mf`** | meshed geometry laid out on the plate. Opens in Bambu Studio (or any slicer) but still needs slicing there. Written with build123d's `Mesher`, so it works everywhere — including the Space. |
+| **`.gcode.3mf`** | the same plate run through the Bambu Studio command line against a machine/process/filament profile: already sliced, ready for the printer. |
+
+The sliced export needs Bambu Studio installed **on the machine running the
+app**; the panel says whether it was found. Discovery checks `$BAMBU_STUDIO`,
+then `$PATH`, then the usual install location per platform. Profiles are given
+either as a path to a `.json` or as the name of one of Bambu Studio's own system
+profiles (`Bambu Lab P1S 0.4 nozzle`), which is looked up inside the
+installation. If slicing is unavailable or fails, you still get the unsliced
+plate and the status says so rather than passing it off as printer-ready.
+
+Layout is a plain shelf packing — parts placed tallest-first in rows, sitting on
+`z = 0` in the positive quadrant — and the app reports the packed size against
+the printer's plate. A default 50 mm set fits one 256 × 256 mm plate at
+240 × 149 mm. Slicing re-arranges anyway (`--arrange 1`); the layout exists to
+answer "does a whole set fit at once?".
+
+```python
+from chess2d import ChessStyle, PlateContents, PRINTERS, export_plate_3mf
+from chess2d import find_bambu_studio, slice_with_bambu_studio
+
+path, layout = export_plate_3mf(
+    "plate.3mf", ChessStyle(), PlateContents.FULL, PRINTERS["Bambu Lab P1S"]
+)
+print(layout.summary())   # "32 parts, 240 × 149 mm — fits on the ..."
+
+if find_bambu_studio():
+    slice_with_bambu_studio(
+        path, "plate.gcode.3mf",
+        machine="Bambu Lab P1S 0.4 nozzle",
+        process="0.20mm Standard @BBL P1P",
+    )
+```
+
+One caution from Bambu's own [command-line
+guide](https://github.com/bambulab/BambuStudio/wiki/Command-Line-Usage): the CLI
+has had version-specific slicing bugs, particularly on macOS. Open the first
+`.gcode.3mf` in Bambu Studio and check it before trusting a batch. The generic
+3MF path has no such dependency.
 
 ## Previewing
 
@@ -239,6 +294,7 @@ src/chess2d/
 ├── board.py        make_board, make_square, square_center, colour parity
 ├── assembly.py     place_piece, make_initial_position, BACK_RANK
 ├── export.py       SVG / DXF / STEP / STL writers + generate_all
+├── bambu.py        3MF print plates + the Bambu Studio slicing CLI
 ├── estimate.py     3D-printing material maths (volumes, mass, filament, cost)
 ├── report.py       the material-estimate PDF (needs the `app` extra)
 ├── preview.py      optional ocp_vscode helpers
@@ -247,7 +303,8 @@ scripts/            generate_all.py, preview_set.py, app.py,
                     build_release.py, deploy_space.py
 space/              Hugging Face Space payload (app.py, requirements, README)
 tests/              test_pieces.py, test_board.py, test_layout.py,
-                    test_estimate.py, test_app.py, test_deploy_space.py
+                    test_estimate.py, test_bambu.py, test_app.py,
+                    test_deploy_space.py
 ```
 
 ## Hugging Face Space (CI)

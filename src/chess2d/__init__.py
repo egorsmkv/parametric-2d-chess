@@ -7,6 +7,7 @@ Public API surface:
 * :mod:`chess2d.board` -- :func:`make_board` and square helpers.
 * :mod:`chess2d.assembly` -- :func:`make_initial_position` and placement.
 * :mod:`chess2d.export` -- SVG/DXF/STEP/STL writers and :func:`generate_all`.
+* :mod:`chess2d.bambu` -- 3MF print plates and Bambu Studio slicing.
 * :mod:`chess2d.estimate` -- 3D-printing material estimates.
 * :mod:`chess2d.report` -- the material-estimate PDF (needs the ``app`` extra).
 """
@@ -18,6 +19,15 @@ from .assembly import (
     ChessComposition,
     make_initial_position,
     place_piece,
+)
+from .bambu import (
+    PRINTERS,
+    PlateContents,
+    PlateLayout,
+    Printer,
+    export_plate_3mf,
+    find_bambu_studio,
+    slice_with_bambu_studio,
 )
 from .board import (
     BoardGeometry,
@@ -63,19 +73,25 @@ __all__ = [
     "BOARD_SIZE",
     "MATERIALS",
     "PLAYING_SIZE",
+    "PRINTERS",
     "SQUARE_SIZE",
     "BoardGeometry",
     "ChessComposition",
     "ChessStyle",
     "Material",
     "PartEstimate",
+    "PlateContents",
+    "PlateLayout",
     "PrintSettings",
+    "Printer",
     "FigureMode",
     "PieceGeometry",
     "PieceType",
     "SetEstimate",
     "Side",
     "estimate_set",
+    "export_plate_3mf",
+    "find_bambu_studio",
     "generate_all",
     "is_dark_square",
     "make_bishop",
@@ -92,5 +108,6 @@ __all__ = [
     "make_rook",
     "make_square",
     "place_piece",
+    "slice_with_bambu_studio",
     "square_center",
 ]

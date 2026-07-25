@@ -129,8 +129,48 @@ def test_preview_reuses_one_workspace() -> None:
         gradio_app.build_preview(label, DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3)
     subdirs = {p.name for p in gradio_app._workspace().iterdir()}
     assert "preview" in subdirs
-    assert subdirs <= {"preview", "build", "zip", "report"}
+    assert subdirs <= {"preview", "build", "zip", "report", "bambu"}
 
 
 def test_demo_builds() -> None:
     assert gradio_app.build_demo() is not None
+
+
+# printer, plate contents, mesh tolerance, slice?, machine, process, filament
+BAMBU_ARGS = ("Bambu Lab P1S", "One of each piece (6)", 0.05, False, "", "", "")
+
+
+def test_bambu_button_returns_a_3mf_and_a_verdict() -> None:
+    path_text, status = gradio_app.build_bambu(
+        MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, *BAMBU_ARGS
+    )
+    path = Path(path_text)
+    assert path.suffix == ".3mf" and zipfile.is_zipfile(path)
+    # The plate is described, and an unsliced file is not passed off as ready.
+    assert "Bambu Lab P1S" in status
+    assert "fits" in status
+    assert ".gcode.3mf" not in status
+
+
+def test_bambu_filename_records_the_plate_contents() -> None:
+    path_text, _ = gradio_app.build_bambu(
+        MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3,
+        "Bambu Lab A1 mini", "Full set (32)", 0.1, False, "", "", "",
+    )
+    assert Path(path_text).name.endswith("_full-plate.3mf")
+
+
+def test_slicing_without_bambu_studio_still_returns_the_plain_plate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The Space (and most machines) have no Bambu Studio: the download must
+    # still arrive, with the status saying plainly that it was not sliced.
+    monkeypatch.setattr(gradio_app, "find_bambu_studio", lambda _=None: None)
+    monkeypatch.setattr("chess2d.bambu.find_bambu_studio", lambda _=None: None)
+    path_text, status = gradio_app.build_bambu(
+        MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3,
+        "Bambu Lab P1S", "One of each piece (6)", 0.1, True, "", "", "",
+    )
+    assert Path(path_text).suffix == ".3mf"
+    assert "Not sliced" in status
+    assert gradio_app._bambu_status().startswith("Bambu Studio was **not found**")
