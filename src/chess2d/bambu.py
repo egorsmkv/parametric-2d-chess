@@ -37,6 +37,8 @@ from .pieces import make_piece_solid
 __all__ = [
     "DEFAULT_PRINTER",
     "DEFAULT_TOLERANCE",
+    "EXECUTABLE_ENV",
+    "PROFILES_ENV",
     "PLATE_CONTENTS",
     "PRINTERS",
     "BambuStudioError",
@@ -381,6 +383,11 @@ class BambuStudioError(RuntimeError):
 #: somewhere unusual.
 EXECUTABLE_ENV = "BAMBU_STUDIO"
 
+#: Override the system-profile directory. Needed when the executable is a
+#: wrapper script rather than the real binary -- an extracted AppImage in a
+#: container, for instance, where the profiles are nowhere near ``$PATH``.
+PROFILES_ENV = "BAMBU_PROFILES"
+
 _CANDIDATES: dict[str, tuple[str, ...]] = {
     "Darwin": ("/Applications/BambuStudio.app/Contents/MacOS/BambuStudio",),
     "Windows": (
@@ -417,18 +424,29 @@ def find_bambu_studio(explicit: str | Path | None = None) -> Path | None:
     return None
 
 
-def profiles_dir(executable: str | Path) -> Path | None:
+def profiles_dir(executable: str | Path | None = None) -> Path | None:
     """The bundled system-profile tree of an installation, if it can be found.
 
     Bambu Studio ships its machine/process/filament JSON under its resources
     directory; finding it lets callers name a profile instead of typing a path.
+    ``$BAMBU_PROFILES`` wins outright, since no amount of guessing from the
+    executable's path can find the profiles of an extracted AppImage behind a
+    wrapper script.
     """
+    if override := os.environ.get(PROFILES_ENV):
+        path = Path(override).expanduser()
+        return path if path.is_dir() else None
+    if executable is None:
+        return None
+
     executable = Path(executable).resolve()
     candidates = [
         # macOS: .../BambuStudio.app/Contents/MacOS/BambuStudio
         executable.parent.parent / "Resources" / "profiles",
-        # Windows: alongside the executable.
+        # Windows, and an extracted AppImage: alongside the executable.
         executable.parent / "resources" / "profiles",
+        # AppImage layouts that put the binary one level down (bin/, usr/bin/).
+        executable.parent.parent / "resources" / "profiles",
         # Linux packages: /usr/bin/bambu-studio -> /usr/share/...
         executable.parent.parent / "share" / "bambu-studio" / "profiles",
         executable.parent.parent / "share" / "BambuStudio" / "profiles",
@@ -453,7 +471,7 @@ def resolve_profile(
             raise BambuStudioError(f"no such {kind} profile: {direct}")
         return direct
 
-    root = profiles_dir(executable) if executable else None
+    root = profiles_dir(executable)
     if root is None:
         raise BambuStudioError(
             f"cannot resolve the {kind} profile {profile!r} by name: the Bambu Studio "

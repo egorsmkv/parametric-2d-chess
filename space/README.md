@@ -3,9 +3,8 @@ title: 2D Chess Set Generator
 emoji: ♟️
 colorFrom: green
 colorTo: gray
-sdk: gradio
-sdk_version: 6.20.0
-app_file: app.py
+sdk: docker
+app_port: 7860
 pinned: false
 license: mit
 ---
@@ -24,9 +23,10 @@ ready for laser cutting, plotting or 3D printing.
 * **Board size** — 35 / 50 / 65 mm squares (280 / 400 / 520 mm board).
 * **Figure size** — how much of a square each piece fills.
 * **Bambu Lab plate** — the pieces laid out on a build plate as a 3MF, with the
-  packed size checked against the printer you choose. Slicing to a printer-ready
-  `.gcode.3mf` needs Bambu Studio locally, so on this Space the 3MF comes
-  unsliced — open it in Bambu Studio and slice it there.
+  packed size checked against the printer you choose. Bambu Studio is installed
+  in this Space's image, so ticking **Slice with Bambu Studio** returns a
+  printer-ready `.gcode.3mf`; leave it unticked for a generic 3MF to slice
+  yourself.
 
 Source: <https://github.com/egorsmkv/parametric-2d-chess>
 

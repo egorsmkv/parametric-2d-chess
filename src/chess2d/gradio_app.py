@@ -513,7 +513,10 @@ def build_demo() -> gr.Blocks:
                         "a 3MF. Uses the piece style, size and thickness chosen "
                         "above.</small>"
                     )
-                    printer = gr.Dropdown(
+                    # Annotated Any for the same reason as the buttons below:
+                    # .change is attached dynamically, and how much of that a
+                    # type checker resolves varies between environments.
+                    printer: Any = gr.Dropdown(
                         choices=list(PRINTERS.keys()),
                         value=DEFAULT_PRINTER,
                         label="Printer",

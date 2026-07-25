@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from chess2d import bambu
+
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "deploy_space.py"
 
@@ -35,7 +37,7 @@ def payload(tmp_path: Path) -> Path:
 
 
 def test_payload_has_the_space_entrypoint_and_metadata(payload: Path) -> None:
-    for name in ("app.py", "README.md", "requirements.txt"):
+    for name in ("app.py", "README.md", "requirements.txt", "Dockerfile"):
         assert (payload / name).is_file(), f"{name} missing from the Space payload"
 
 
@@ -45,7 +47,7 @@ def test_payload_bundles_the_package(payload: Path) -> None:
     assert (package / "gradio_app.py").is_file()
     # Everything the app imports must ship with it.
     for module in (
-        "assembly", "board", "estimate", "export", "geometry",
+        "assembly", "bambu", "board", "estimate", "export", "geometry",
         "parameters", "pieces", "report",
     ):
         assert (package / f"{module}.py").is_file(), f"chess2d/{module}.py missing"
@@ -60,23 +62,35 @@ def test_payload_bundles_the_package(payload: Path) -> None:
         assert (styles / f"{style}.py").is_file(), f"chess2d/styles/{style}.py missing"
 
 
-def test_space_readme_declares_the_gradio_sdk(payload: Path) -> None:
+def test_space_readme_declares_the_docker_sdk(payload: Path) -> None:
     header = (payload / "README.md").read_text()
     assert header.startswith("---"), "Space README needs YAML frontmatter"
-    assert "sdk: gradio" in header
-    assert "app_file: app.py" in header
+    assert "sdk: docker" in header
+    # Without app_port the Space has no idea which port to route to.
+    assert "app_port: 7860" in header
+    # Leftovers from the gradio SDK: sdk_version would contradict `sdk: docker`,
+    # and app_file only means anything to the SDK Spaces (the Dockerfile's CMD
+    # is the entrypoint here).
+    assert "sdk_version:" not in header
+    assert "app_file:" not in header
 
 
-def test_space_gradio_pin_matches_the_readme(payload: Path) -> None:
-    # A mismatch makes the Space build with a different gradio than we test.
-    readme = (payload / "README.md").read_text()
-    requirements = (payload / "requirements.txt").read_text()
-    sdk_version = next(
-        line.split(":", 1)[1].strip()
-        for line in readme.splitlines()
-        if line.startswith("sdk_version:")
-    )
-    assert f"gradio=={sdk_version}" in requirements
+def test_the_dockerfile_serves_the_app_where_the_space_expects_it(payload: Path) -> None:
+    dockerfile = (payload / "Dockerfile").read_text()
+    assert "GRADIO_SERVER_NAME=0.0.0.0" in dockerfile, "must bind outside the container"
+    assert "GRADIO_SERVER_PORT=7860" in dockerfile
+    assert "EXPOSE 7860" in dockerfile
+    assert 'CMD ["python", "app.py"]' in dockerfile
+
+
+def test_the_dockerfile_installs_bambu_studio_where_chess2d_looks(payload: Path) -> None:
+    # The whole point of the Docker Space: slicing has to be available. These
+    # are the two hooks chess2d.bambu reads, so a rename here must fail loudly.
+    dockerfile = (payload / "Dockerfile").read_text()
+    assert f"{bambu.EXECUTABLE_ENV}=" in dockerfile
+    assert f"{bambu.PROFILES_ENV}=" in dockerfile
+    assert "--appimage-extract" in dockerfile, "AppImages need FUSE unless extracted"
+    assert "xvfb" in dockerfile, "the Bambu Studio CLI still needs a display"
 
 
 def test_payload_excludes_caches(payload: Path) -> None:

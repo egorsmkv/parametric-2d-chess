@@ -23,6 +23,7 @@ from chess2d.bambu import (
     find_bambu_studio,
     make_plate,
     plate_parts,
+    profiles_dir,
     resolve_profile,
     slice_with_bambu_studio,
 )
@@ -237,6 +238,25 @@ def test_system_profiles_are_resolved_by_name(tmp_path: Path) -> None:
     executable = _fake_install(tmp_path)
     found = resolve_profile("Bambu Lab P1S 0.4 nozzle", "machine", executable)
     assert found.is_file() and found.name.endswith("0.4 nozzle.json")
+
+
+def test_the_profile_directory_can_be_pointed_at_explicitly(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # How the container finds them: the executable is a wrapper script in
+    # /usr/local/bin, so no amount of walking up from it reaches the profiles.
+    executable = tmp_path / "wrapper" / "bambu-studio"
+    executable.parent.mkdir()
+    executable.write_text("")
+    profiles = tmp_path / "elsewhere" / "BBL" / "machine"
+    profiles.mkdir(parents=True)
+    (profiles / "Bambu Lab P1S 0.4 nozzle.json").write_text("{}")
+
+    assert profiles_dir(executable) is None
+    monkeypatch.setenv("BAMBU_PROFILES", str(tmp_path / "elsewhere"))
+    assert profiles_dir(executable) == tmp_path / "elsewhere"
+    found = resolve_profile("Bambu Lab P1S 0.4 nozzle", "machine", executable)
+    assert found.is_file()
 
 
 def test_an_unknown_profile_name_is_an_error(tmp_path: Path) -> None:

@@ -209,7 +209,9 @@ app**; the panel says whether it was found. Discovery checks `$BAMBU_STUDIO`,
 then `$PATH`, then the usual install location per platform. Profiles are given
 either as a path to a `.json` or as the name of one of Bambu Studio's own system
 profiles (`Bambu Lab P1S 0.4 nozzle`), which is looked up inside the
-installation. If slicing is unavailable or fails, you still get the unsliced
+installation — or under `$BAMBU_PROFILES`, for installs where the profiles are
+nowhere near the executable. The [Docker image](#docker-image-slicing-on-the-space)
+sets both variables, which is what makes slicing work on the deployed Space. If slicing is unavailable or fails, you still get the unsliced
 plate and the status says so rather than passing it off as printer-ready.
 
 Layout is a plain shelf packing — parts placed tallest-first in rows, sitting on
@@ -301,7 +303,8 @@ src/chess2d/
 └── gradio_app.py   the interactive web configurator
 scripts/            generate_all.py, preview_set.py, app.py,
                     build_release.py, deploy_space.py
-space/              Hugging Face Space payload (app.py, requirements, README)
+space/              Hugging Face Space payload (app.py, Dockerfile,
+                    requirements, README)
 tests/              test_pieces.py, test_board.py, test_layout.py,
                     test_estimate.py, test_bambu.py, test_app.py,
                     test_deploy_space.py
@@ -314,9 +317,13 @@ on **every commit**: it lints, type-checks and runs the full test suite (with th
 `app` extra, so the Gradio tests actually execute), then — only for commits on
 `main` that passed — deploys the app to a Hugging Face Space.
 
-The Space payload is assembled from [`space/`](space/) (entrypoint, pinned
-requirements and the Space `README.md` with its HF frontmatter) plus a copy of
-the `chess2d` package, so the Space runs without the source tree.
+The Space payload is assembled from [`space/`](space/) (entrypoint, `Dockerfile`,
+pinned requirements and the Space `README.md` with its HF frontmatter) plus a
+copy of the `chess2d` package, so the Space runs without the source tree.
+
+It is a **Docker Space**, not a gradio-SDK one: the image installs Bambu Studio
+alongside the app, which is what lets the deployed Space return a printer-ready
+`.gcode.3mf` instead of only a generic plate. See *Docker image* below.
 
 **One-time setup**, both on the GitHub repository:
 
@@ -333,9 +340,48 @@ Test the packaging locally, or deploy by hand:
 python scripts/deploy_space.py --space-id egorsmkv/parametric-2d-chess --dry-run
 ```
 
-Keep `sdk_version` in [`space/README.md`](space/README.md) in sync with the
-gradio pin in [`space/requirements.txt`](space/requirements.txt) — a test
-enforces this.
+## Docker image (slicing on the Space)
+
+[`space/Dockerfile`](space/Dockerfile) builds the app **with Bambu Studio inside
+it**, so *Slice with Bambu Studio* works on a deployed Space — which is
+otherwise impossible, since the gradio SDK gives you a Python environment and
+nothing else.
+
+What the image does beyond `pip install`:
+
+* base **Ubuntu 24.04**, because Bambu Studio ships its Linux build as an
+  ubuntu-24.04 AppImage and a Debian-based Python image has too old a glibc;
+* unpacks the AppImage with `--appimage-extract` — containers have no FUSE;
+* installs **xvfb** and wraps the binary in `xvfb-run`: Bambu Studio is a GUI
+  program and its command line still wants a display;
+* points `$BAMBU_STUDIO` and `$BAMBU_PROFILES` at the extracted install, which
+  is how [`bambu.py`](src/chess2d/bambu.py) finds the binary and its system
+  profiles behind the wrapper script.
+
+The build resolves the newest Ubuntu AppImage from the GitHub release feed —
+an unauthenticated API call, so it is rate-limited and makes the image
+non-reproducible. Pin an asset for anything that matters:
+
+```bash
+docker build --build-arg BAMBU_STUDIO_URL=https://github.com/bambulab/BambuStudio/releases/download/<tag>/<asset>.AppImage -t chess2d build/space
+```
+
+Run it locally against the same payload the Space gets:
+
+```bash
+python scripts/deploy_space.py --space-id local/build --dry-run --staging build/space
+```
+
+```bash
+docker build -t chess2d build/space && docker run --rm -p 7860:7860 chess2d
+```
+
+Nothing in the ordinary CI run builds this image — it downloads a ~250 MB
+AppImage and takes minutes. The `image` job in
+[`deploy-space.yml`](.github/workflows/deploy-space.yml) does it on
+**`workflow_dispatch`**, and proves the point by slicing a plate inside the
+container rather than merely checking the binary exists. Run it after touching
+the Dockerfile or when a new Bambu Studio release lands.
 
 ## Releases (CI)
 

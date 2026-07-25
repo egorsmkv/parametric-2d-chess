@@ -93,3 +93,57 @@ jobs:
           else
             echo "Deploy skipped: add an \`HF_TOKEN\` secret to enable it." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  image:
+    name: Build the Space image and slice in it
+    # Manual only: this downloads a ~250 MB Bambu Studio AppImage and builds a
+    # multi-GB image, which is far too slow to gate every commit. Run it after
+    # touching space/Dockerfile, or when a new Bambu Studio release lands --
+    # nothing else in CI proves the slicer actually works.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Assemble the Space payload
+        run: |
+          uv run --extra app python scripts/deploy_space.py \
+            --space-id local/build --dry-run --staging build/space
+
+      - name: Build the image
+        run: docker build -t chess2d-space build/space
+
+      - name: Slice a plate inside the container
+        # The real end-to-end check: Bambu Studio has to be found, run headless
+        # and write a .gcode.3mf. A generic 3MF passing is not enough.
+        run: |
+          docker run --rm chess2d-space python - <<'PY'
+          from pathlib import Path
+          from chess2d.bambu import (
+              PRINTERS, export_plate_3mf, find_bambu_studio, slice_with_bambu_studio,
+          )
+
+          binary = find_bambu_studio()
+          assert binary, "Bambu Studio not found in the image"
+          print(f"Bambu Studio: {binary}")
+
+          plate, layout = export_plate_3mf("/tmp/plate.3mf")
+          print(layout.summary())
+
+          printer = PRINTERS["Bambu Lab P1S"]
+          sliced = slice_with_bambu_studio(
+              plate, "/tmp/plate.gcode.3mf",
+              machine=printer.machine_profile, process=printer.process_profile,
+          )
+          size = Path(sliced).stat().st_size
+          print(f"sliced -> {sliced} ({size / 1e6:.1f} MB)")
+          assert size > 10_000, "the sliced file is suspiciously small"
+          PY

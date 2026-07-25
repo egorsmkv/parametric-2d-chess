@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 """Deploy the Gradio app to a Hugging Face Space.
 
-Assembles a Space payload -- the entrypoint and metadata from ``space/`` plus a
-copy of the ``chess2d`` package -- and uploads it with ``huggingface_hub``.
+Assembles a Space payload -- the entrypoint, Dockerfile and metadata from
+``space/`` plus a copy of the ``chess2d`` package -- and uploads it with
+``huggingface_hub``. The Space is a Docker Space: the image carries Bambu Studio
+so the app can slice a plate, which the plain gradio SDK cannot do.
 
 Usage::
 
@@ -30,6 +32,7 @@ PACKAGE_DIR = ROOT / "src" / "chess2d"
 # module cannot linger in the Space and shadow the new code.
 MANAGED_PATTERNS = [
     "*.py",
+    "Dockerfile",
     "chess2d/*",
     # One level deeper: the style modules live in a subpackage, and a stale
     # copy left behind there would shadow the new code.
@@ -67,10 +70,12 @@ def deploy(space_id: str, staging: Path, token: str) -> str:
 
     api = HfApi(token=token)
     # Idempotent: creates the Space on the first run, no-op afterwards.
+    # Docker rather than the gradio SDK: the image also carries Bambu Studio,
+    # which is what lets the Space slice a plate for the printer.
     api.create_repo(
         repo_id=space_id,
         repo_type="space",
-        space_sdk="gradio",
+        space_sdk="docker",
         exist_ok=True,
     )
     api.upload_folder(
@@ -101,7 +106,9 @@ def main(argv: list[str]) -> int:
         print(f"  {path.relative_to(staging)}")
 
     # Fail fast on an incomplete payload rather than publishing a broken Space.
-    required = {Path("app.py"), Path("README.md"), Path("requirements.txt")}
+    required = {
+        Path("app.py"), Path("README.md"), Path("requirements.txt"), Path("Dockerfile")
+    }
     present = {f.relative_to(staging) for f in files}
     if missing := required - present:
         raise SystemExit(f"payload is missing: {', '.join(str(m) for m in sorted(missing))}")
