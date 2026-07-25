@@ -100,34 +100,68 @@ class Printer:
     process_profile: str
 
 
-#: Plates and preset names are read off the profiles Bambu Studio ships (the
-#: machine preset's own ``printable_area`` and ``default_print_profile``), not
-#: from the marketing pages. Note the P1S: it slices with the X1C's process
-#: presets, which no amount of reasoning from the model name would tell you.
+#: Every Bambu machine the shipped profiles know about, in rough family order.
+#: Plates and preset names are read off those profiles (the machine preset's own
+#: ``printable_area`` and ``default_print_profile``), not from the marketing
+#: pages -- and a test re-checks them against an installation. Note the P1S, X1
+#: and X1E, which all slice with the *X1C's* process presets: nothing about the
+#: model name would tell you that.
 PRINTERS: dict[str, Printer] = {
+    "Bambu Lab P1P": Printer(
+        "Bambu Lab P1P", (256.0, 256.0),
+        "Bambu Lab P1P 0.4 nozzle", "0.20mm Standard @BBL P1P",
+    ),
     "Bambu Lab P1S": Printer(
         "Bambu Lab P1S", (256.0, 256.0),
         "Bambu Lab P1S 0.4 nozzle", "0.20mm Standard @BBL X1C",
     ),
-    "Bambu Lab P1P": Printer(
-        "Bambu Lab P1P", (256.0, 256.0),
-        "Bambu Lab P1P 0.4 nozzle", "0.20mm Standard @BBL P1P",
+    "Bambu Lab P2S": Printer(
+        "Bambu Lab P2S", (256.0, 256.0),
+        "Bambu Lab P2S 0.4 nozzle", "0.20mm Standard @BBL P2S",
+    ),
+    "Bambu Lab X1": Printer(
+        "Bambu Lab X1", (256.0, 256.0),
+        "Bambu Lab X1 0.4 nozzle", "0.20mm Standard @BBL X1C",
     ),
     "Bambu Lab X1 Carbon": Printer(
         "Bambu Lab X1 Carbon", (256.0, 256.0),
         "Bambu Lab X1 Carbon 0.4 nozzle", "0.20mm Standard @BBL X1C",
     ),
-    "Bambu Lab A1": Printer(
-        "Bambu Lab A1", (256.0, 256.0),
-        "Bambu Lab A1 0.4 nozzle", "0.20mm Standard @BBL A1",
+    "Bambu Lab X1E": Printer(
+        "Bambu Lab X1E", (256.0, 256.0),
+        "Bambu Lab X1E 0.4 nozzle", "0.20mm Standard @BBL X1C",
+    ),
+    "Bambu Lab X2D": Printer(
+        "Bambu Lab X2D", (256.0, 256.0),
+        "Bambu Lab X2D 0.4 nozzle", "0.20mm Standard @BBL X2D",
     ),
     "Bambu Lab A1 mini": Printer(
         "Bambu Lab A1 mini", (180.0, 180.0),
         "Bambu Lab A1 mini 0.4 nozzle", "0.20mm Standard @BBL A1M",
     ),
+    "Bambu Lab A1": Printer(
+        "Bambu Lab A1", (256.0, 256.0),
+        "Bambu Lab A1 0.4 nozzle", "0.20mm Standard @BBL A1",
+    ),
+    "Bambu Lab A2L": Printer(
+        "Bambu Lab A2L", (330.0, 320.0),
+        "Bambu Lab A2L 0.4 nozzle", "0.20mm Standard @BBL A2L",
+    ),
+    "Bambu Lab H2C": Printer(
+        "Bambu Lab H2C", (330.0, 320.0),
+        "Bambu Lab H2C 0.4 nozzle", "0.20mm Standard @BBL H2C",
+    ),
+    "Bambu Lab H2S": Printer(
+        "Bambu Lab H2S", (340.0, 320.0),
+        "Bambu Lab H2S 0.4 nozzle", "0.20mm Standard @BBL H2S",
+    ),
     "Bambu Lab H2D": Printer(
         "Bambu Lab H2D", (350.0, 320.0),
         "Bambu Lab H2D 0.4 nozzle", "0.20mm Standard @BBL H2D",
+    ),
+    "Bambu Lab H2D Pro": Printer(
+        "Bambu Lab H2D Pro", (350.0, 320.0),
+        "Bambu Lab H2D Pro 0.4 nozzle", "0.20mm Standard @BBL H2DP",
     ),
 }
 

@@ -639,6 +639,21 @@ def test_the_table_plates_match_the_installed_machine_presets() -> None:
 
 
 @needs_bambu_studio
+def test_the_menu_covers_every_bambu_model_the_installation_knows() -> None:
+    # Skipped in CI, so this only speaks up on a machine where someone can act:
+    # a new Bambu release adding a model should get an entry in PRINTERS.
+    installed = {
+        model
+        for path in system_profiles("machine").values()
+        if isinstance(model := flatten_profile(path).get("printer_model"), str)
+        and model.startswith("Bambu Lab")
+    }
+    assert installed <= set(PRINTERS), (
+        f"missing from PRINTERS: {sorted(installed - set(PRINTERS))}"
+    )
+
+
+@needs_bambu_studio
 def test_a_plate_really_slices(tmp_path: Path) -> None:
     printer = PRINTERS["Bambu Lab P1S"]
     plate, _ = export_plate_3mf(tmp_path / "plate.3mf", printer=printer)
