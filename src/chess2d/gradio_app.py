@@ -27,6 +27,7 @@ from .bambu import (
     export_plate_3mf,
     find_bambu_studio,
     machine_profiles,
+    read_slice_report,
     resolve_printer_profiles,
     resolve_process,
     slice_with_bambu_studio,
@@ -433,6 +434,15 @@ def build_bambu(mode_label: str, style_label: str, board_label: str, figure_labe
                 + (f" + `{used_filament}`" if used_filament else "")
                 + f": `{path.name}` is printer-ready."
             )
+            # The slicer's own prediction for this exact machine and process --
+            # no estimate of ours can improve on it.
+            if report := read_slice_report(path):
+                lines.append(
+                    f"**Print time {report.duration()}** on the {printer.name}, "
+                    f"{report.grams:.0f} g of filament"
+                    + (f" ({report.metres:.1f} m)" if report.metres else "")
+                    + ". Bambu Studio's own estimate for this plate."
+                )
         except BambuStudioError as error:
             lines.append(
                 f"**Not sliced.** {error} \n"

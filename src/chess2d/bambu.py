@@ -26,10 +26,12 @@ import platform
 import shutil
 import subprocess
 import tempfile
+import zipfile
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree
 
 from build123d import Mesher, Part, Pos, Unit
 
@@ -50,6 +52,7 @@ __all__ = [
     "PlateContents",
     "PlateLayout",
     "Printer",
+    "SliceReport",
     "arrange_plate",
     "compatible_processes",
     "default_filament",
@@ -61,6 +64,7 @@ __all__ = [
     "make_plate",
     "plate_parts",
     "profiles_dir",
+    "read_slice_report",
     "resolve_printer_profiles",
     "resolve_process",
     "resolve_profile",
@@ -748,6 +752,79 @@ def default_filament(machine: str, executable: str | Path | None = None) -> str 
     if not isinstance(declared, str):
         return None
     return declared if declared in system_profiles("filament", executable) else None
+
+
+@dataclass(frozen=True)
+class SliceReport:
+    """What the slicer itself predicts for a plate, straight from its output.
+
+    Exact for the machine and process it was sliced with, which is why the app
+    prefers it over any estimate of ours: no model of print time competes with
+    the slicer that generated the G-code.
+    """
+
+    #: Wall-clock print time in seconds, as Bambu Studio predicts it.
+    seconds: float
+    #: Filament mass in grams.
+    grams: float
+    #: Filament length in metres, when the plate records it.
+    metres: float | None = None
+    objects: int = 0
+
+    def duration(self) -> str:
+        """The print time as "1 h 25 min", or "48 min" under the hour."""
+        total = int(round(self.seconds))
+        hours, minutes = divmod(total // 60, 60)
+        return f"{hours} h {minutes:02d} min" if hours else f"{minutes} min"
+
+
+def read_slice_report(sliced: str | Path) -> SliceReport | None:
+    """Read the prediction Bambu Studio stored in a ``.gcode.3mf``.
+
+    ``None`` when the file carries no slice metadata -- which is what an
+    unsliced 3MF looks like, so this doubles as a check that slicing happened.
+    """
+    try:
+        with zipfile.ZipFile(sliced) as bundle:
+            raw = bundle.read("Metadata/slice_info.config")
+    except (KeyError, OSError, zipfile.BadZipFile):
+        return None
+
+    try:
+        plate = ElementTree.fromstring(raw).find("plate")
+    except ElementTree.ParseError:
+        return None
+    if plate is None:
+        return None
+
+    values = {
+        item.get("key"): item.get("value")
+        for item in plate.findall("metadata")
+    }
+
+    def number(key: str) -> float | None:
+        try:
+            return float(values[key])  # type: ignore[arg-type]
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    seconds, grams = number("prediction"), number("weight")
+    if seconds is None or grams is None:
+        return None
+
+    metres = 0.0
+    for filament in plate.findall("filament"):
+        try:
+            metres += float(filament.get("used_m", 0.0))
+        except (TypeError, ValueError):
+            continue
+
+    return SliceReport(
+        seconds=seconds,
+        grams=grams,
+        metres=metres or None,
+        objects=len(plate.findall("object")),
+    )
 
 
 def _prepare_profile(
