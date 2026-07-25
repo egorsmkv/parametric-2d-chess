@@ -22,10 +22,13 @@ from .bambu import (
     PLATE_CONTENTS,
     PRINTERS,
     BambuStudioError,
+    Printer,
     default_filament,
     export_plate_3mf,
     find_bambu_studio,
+    machine_profiles,
     resolve_printer_profiles,
+    resolve_process,
     slice_with_bambu_studio,
 )
 from .estimate import DEFAULT_MATERIAL, MATERIALS, PrintSettings
@@ -340,11 +343,26 @@ def _bambu_status() -> str:
     return f"Bambu Studio found at `{binary}` — slicing to `.gcode.3mf` is available."
 
 
+#: Menu entry standing for "let resolve_printer_profiles decide".
+AUTO_PROFILE = "Automatic — match the printer"
+
+
+def _machine_choices(printer: Printer) -> list[str]:
+    """The machine-profile menu: automatic first, then the real nozzle variants."""
+    return [AUTO_PROFILE, *machine_profiles(printer)]
+
+
+def _chosen(value: str) -> str:
+    """A profile field's value, with the automatic entry read as 'unset'."""
+    value = (value or "").strip()
+    return "" if value == AUTO_PROFILE else value
+
+
 def _profile_hints(printer_name: str) -> tuple[Any, Any]:
-    """Re-point the machine/process placeholders at the chosen printer."""
+    """Re-point the profile controls at the chosen printer."""
     printer = PRINTERS[printer_name]
     return (
-        gr.update(placeholder=printer.machine_profile),
+        gr.update(choices=_machine_choices(printer), value=AUTO_PROFILE),
         gr.update(placeholder=printer.process_profile),
     )
 
@@ -388,12 +406,20 @@ def build_bambu(mode_label: str, style_label: str, board_label: str, figure_labe
         # Blank fields mean "work it out": the installed profile tree decides
         # which presets pair, since the table's names are only a starting guess
         # and Bambu renames presets between releases.
+        wanted_machine, wanted_process = _chosen(machine), _chosen(process)
         chosen_machine, chosen_process = resolve_printer_profiles(
-            printer, process_preference=process.strip() or None
+            printer, process_preference=wanted_process or None
         )
-        used = machine.strip() or chosen_machine
-        used_process = process.strip() or chosen_process
-        used_filament = filament.strip() or default_filament(used)
+        used = wanted_machine or chosen_machine
+        # A machine override changes which processes are legal -- a 0.6 mm
+        # nozzle rejects the 0.4 mm presets -- so the process follows the
+        # machine actually in use, not the printer's default one.
+        used_process = (
+            resolve_process(used, wanted_process or None)
+            if wanted_machine
+            else wanted_process or chosen_process
+        )
+        used_filament = _chosen(filament) or default_filament(used)
         try:
             path = slice_with_bambu_studio(
                 path,
@@ -558,13 +584,16 @@ def build_demo() -> gr.Blocks:
                         info="Needs Bambu Studio installed on the machine running "
                              "this app.",
                     )
-                    # Placeholders show the profiles a blank field falls back to;
-                    # they follow the printer selection (see _profile_hints).
-                    machine_profile = gr.Textbox(
+                    # The nozzle variants of the selected printer, refreshed when
+                    # that changes (see _profile_hints). Custom values stay
+                    # allowed so a path to an exported .json still works.
+                    machine_profile = gr.Dropdown(
+                        choices=_machine_choices(PRINTERS[DEFAULT_PRINTER]),
+                        value=AUTO_PROFILE,
+                        allow_custom_value=True,
                         label="Machine profile",
-                        placeholder=PRINTERS[DEFAULT_PRINTER].machine_profile,
-                        info="A system profile name or a path to a .json. Blank uses "
-                             "the printer's default.",
+                        info="Nozzle variants of the printer above. Or type the name "
+                             "of any other system preset, or a path to a .json.",
                     )
                     process_profile = gr.Textbox(
                         label="Process profile",

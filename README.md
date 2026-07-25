@@ -204,6 +204,14 @@ There are two different targets, and the app is explicit about which one you got
 | **`.3mf`** | meshed geometry laid out on the plate. Opens in Bambu Studio (or any slicer) but still needs slicing there. Written with build123d's `Mesher`, so it works everywhere — including the Space. |
 | **`.gcode.3mf`** | the same plate run through the Bambu Studio command line against a machine/process/filament profile: already sliced, ready for the printer. |
 
+**Machine profile** offers the selected printer's nozzle variants — 0.2, 0.4,
+0.6 and 0.8 mm — read from the installed profiles, or generated from the same
+naming pattern when Bambu Studio is absent. *Automatic* is the default and lets
+the printer decide; any other system preset name or a path to an exported
+`.json` can still be typed in. Changing the nozzle changes the process too, because
+a 0.6 mm machine preset rejects the 0.4 mm processes: pick the 0.6 mm variant and
+the slice switches to `0.30mm Standard @BBL X1C 0.6 nozzle` on its own.
+
 The sliced export needs Bambu Studio installed **on the machine running the
 app**; the panel says whether it was found. Discovery checks `$BAMBU_STUDIO`,
 then `$PATH`, then the usual install location per platform. Profiles are given

@@ -41,6 +41,7 @@ __all__ = [
     "DEFAULT_PRINTER",
     "DEFAULT_TOLERANCE",
     "EXECUTABLE_ENV",
+    "NOZZLE_SIZES",
     "PROFILES_ENV",
     "PLATE_CONTENTS",
     "PRINTERS",
@@ -56,10 +57,12 @@ __all__ = [
     "export_plate_3mf",
     "find_bambu_studio",
     "flatten_profile",
+    "machine_profiles",
     "make_plate",
     "plate_parts",
     "profiles_dir",
     "resolve_printer_profiles",
+    "resolve_process",
     "resolve_profile",
     "slice_with_bambu_studio",
     "system_profiles",
@@ -643,25 +646,41 @@ def resolve_printer_profiles(
     if machine not in machines:
         return printer.machine_profile, printer.process_profile
 
-    settings = flatten_profile(machines[machine])
+    return machine, resolve_process(
+        machine, process_preference or printer.process_profile, executable
+    )
+
+
+def resolve_process(
+    machine: str,
+    preference: str | None = None,
+    executable: str | Path | None = None,
+) -> str | None:
+    """A process preset that can slice for ``machine``, honouring a preference.
+
+    Always resolved against the machine actually in use, never against the
+    printer model: the nozzle decides. A P1S with a 0.4 mm nozzle takes
+    "0.20mm Standard @BBL X1C"; the same printer with a 0.6 mm nozzle rejects
+    it and wants "0.30mm Standard @BBL X1C 0.6 nozzle".
+    """
     processes = compatible_processes(machine, executable)
     if not processes:
-        return machine, None
+        return None
 
-    # The machine preset names the process Bambu Studio itself would select,
-    # which beats anything inferred from the model: a P1S defaults to the X1C's
-    # process presets.
-    default = settings.get("default_print_profile")
-    if process_preference:
-        exact = [name for name in processes if name == process_preference]
-        prefixed = [name for name in processes if name.startswith(process_preference)]
+    if preference:
+        exact = [name for name in processes if name == preference]
+        prefixed = [name for name in processes if name.startswith(preference)]
         if chosen := (exact or prefixed):
-            return machine, chosen[0]
-    if isinstance(default, str) and default in processes:
-        return machine, default
+            return chosen[0]
 
-    preferred = [name for name in processes if name.startswith(printer.process_profile)]
-    return machine, (preferred or processes)[0]
+    # Failing that, the machine preset names the process Bambu Studio itself
+    # would select, which beats anything inferred from the model.
+    machines = system_profiles("machine", executable)
+    if machine in machines:
+        default = flatten_profile(machines[machine]).get("default_print_profile")
+        if isinstance(default, str) and default in processes:
+            return default
+    return processes[0]
 
 
 def _machine_for_model(model: str, machines: dict[str, Path]) -> str | None:
@@ -677,6 +696,45 @@ def _machine_for_model(model: str, machines: dict[str, Path]) -> str | None:
     if not candidates:
         return None
     return next((name for name in candidates if "0.4" in name), candidates[0])
+
+
+#: Nozzles every Bambu machine preset comes in. Verified against an install:
+#: each model ships exactly these four, named "<model> <nozzle> nozzle".
+NOZZLE_SIZES: tuple[str, ...] = ("0.2", "0.4", "0.6", "0.8")
+
+
+def machine_profiles(
+    printer: Printer, executable: str | Path | None = None
+) -> list[str]:
+    """The machine presets worth offering for one printer, nozzle order.
+
+    Read from the installation when there is one. The fallback is generated
+    from the same naming pattern rather than typed out, so it cannot disagree
+    with itself -- but it is still only a guess, and the installed list wins.
+    """
+    machines = system_profiles("machine", executable)
+    installed = sorted(
+        (
+            name for name, path in machines.items()
+            if flatten_profile(path).get("printer_model") == printer.name
+        ),
+        key=lambda name: _nozzle_of(name),
+    )
+    if installed:
+        return installed
+    return [f"{printer.name} {nozzle} nozzle" for nozzle in NOZZLE_SIZES]
+
+
+def _nozzle_of(preset: str) -> float:
+    """The nozzle size in a preset name, for ordering. Unknown sorts last."""
+    parts = preset.split()
+    for index, word in enumerate(parts):
+        if word == "nozzle" and index:
+            try:
+                return float(parts[index - 1])
+            except ValueError:
+                break
+    return float("inf")
 
 
 def default_filament(machine: str, executable: str | Path | None = None) -> str | None:

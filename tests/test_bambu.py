@@ -25,10 +25,12 @@ from chess2d.bambu import (
     export_plate_3mf,
     find_bambu_studio,
     flatten_profile,
+    machine_profiles,
     make_plate,
     plate_parts,
     profiles_dir,
     resolve_printer_profiles,
+    resolve_process,
     resolve_profile,
     slice_with_bambu_studio,
     system_profiles,
@@ -308,15 +310,31 @@ def _install_with_profiles(tmp_path: Path) -> Path:
     )
     write(
         "machine", "Bambu Lab P1S 0.4 nozzle",
-        {"type": "machine", "inherits": "fdm_machine_bbl", "printer_model": "P1S"},
+        {"type": "machine", "inherits": "fdm_machine_bbl",
+         "printer_model": "Bambu Lab P1S", "printer_variant": "0.4",
+         "default_print_profile": "0.20mm Standard @BBL X1C",
+         "default_filament_profile": ["Bambu PLA Basic @BBL P1S 0.4 nozzle"]},
     )
+    # A second nozzle, which takes an entirely different set of processes.
+    write(
+        "machine", "Bambu Lab P1S 0.6 nozzle",
+        {"type": "machine", "inherits": "fdm_machine_bbl",
+         "printer_model": "Bambu Lab P1S", "printer_variant": "0.6",
+         "default_print_profile": "0.30mm Standard @BBL X1C 0.6 nozzle"},
+    )
+    write("filament", "Bambu PLA Basic @BBL P1S 0.4 nozzle", {"type": "filament"})
     write("machine", "Bambu Lab A1 mini 0.4 nozzle", {"type": "machine"})
     # A base preset the user can never pick.
     write("machine", "fdm_machine_common", {"type": "machine", "instantiation": "false"})
 
+    # Named for the X1C but compatible with the P1S: the trap that started this.
     p1s = ["Bambu Lab P1S 0.4 nozzle", "Bambu Lab P1P 0.4 nozzle"]
-    write("process", "0.20mm Standard @BBL P1P", {"compatible_printers": p1s})
+    write("process", "0.20mm Standard @BBL X1C", {"compatible_printers": p1s})
     write("process", "0.08mm Extra Fine @BBL P1P", {"compatible_printers": p1s})
+    write(
+        "process", "0.30mm Standard @BBL X1C 0.6 nozzle",
+        {"compatible_printers": ["Bambu Lab P1S 0.6 nozzle"]},
+    )
     write(
         "process", "0.20mm Standard @BBL A1M",
         {"compatible_printers": ["Bambu Lab A1 mini 0.4 nozzle"]},
@@ -332,7 +350,7 @@ def test_a_preset_is_merged_with_what_it_inherits(tmp_path: Path) -> None:
     machine = system_profiles("machine", executable)["Bambu Lab P1S 0.4 nozzle"]
     flat = flatten_profile(machine)
 
-    assert flat["printer_model"] == "P1S", "the leaf's own settings survive"
+    assert flat["printer_model"] == "Bambu Lab P1S", "the leaf's own settings survive"
     assert flat["printable_height"] == "250", "the base's settings come along"
     assert flat["name"] == "Bambu Lab P1S 0.4 nozzle", "the leaf keeps its identity"
     # Leaving the pointer in sends Bambu Studio after a preset it never loaded.
@@ -385,9 +403,48 @@ def test_the_slicer_is_handed_a_complete_config_not_a_fragment(
     )
 
     assert handed["machine"]["printable_height"] == "250", "inherited setting missing"
-    assert handed["machine"]["printer_model"] == "P1S"
+    assert handed["machine"]["printer_model"] == "Bambu Lab P1S"
     # The process inherited its compatibility, which must reach the slicer.
     assert "Bambu Lab P1S 0.4 nozzle" in handed["process"]["compatible_printers"]
+
+
+def test_the_machine_menu_lists_the_installed_nozzle_variants(tmp_path: Path) -> None:
+    executable = _install_with_profiles(tmp_path)
+    offered = machine_profiles(PRINTERS["Bambu Lab P1S"], executable)
+    assert offered == ["Bambu Lab P1S 0.4 nozzle", "Bambu Lab P1S 0.6 nozzle"]
+    # Another model's presets are not on this printer's menu.
+    assert not any("A1 mini" in name for name in offered)
+
+
+def test_the_machine_menu_falls_back_without_an_installation(tmp_path: Path) -> None:
+    offered = machine_profiles(PRINTERS["Bambu Lab A1"], tmp_path / "nothing")
+    assert offered == [
+        "Bambu Lab A1 0.2 nozzle", "Bambu Lab A1 0.4 nozzle",
+        "Bambu Lab A1 0.6 nozzle", "Bambu Lab A1 0.8 nozzle",
+    ]
+
+
+def test_the_process_follows_the_nozzle_not_the_model(tmp_path: Path) -> None:
+    # Choosing a different nozzle changes which processes are legal: the 0.6 mm
+    # presets reject the 0.4 mm process and vice versa.
+    executable = _install_with_profiles(tmp_path)
+    assert resolve_process("Bambu Lab P1S 0.4 nozzle", None, executable) == (
+        "0.20mm Standard @BBL X1C"
+    )
+    assert resolve_process("Bambu Lab P1S 0.6 nozzle", None, executable) == (
+        "0.30mm Standard @BBL X1C 0.6 nozzle"
+    )
+
+
+def test_an_incompatible_preference_does_not_survive_a_nozzle_change(
+    tmp_path: Path,
+) -> None:
+    executable = _install_with_profiles(tmp_path)
+    chosen = resolve_process(
+        "Bambu Lab P1S 0.6 nozzle", "0.20mm Standard @BBL X1C", executable
+    )
+    assert chosen != "0.20mm Standard @BBL X1C"
+    assert chosen in compatible_processes("Bambu Lab P1S 0.6 nozzle", executable)
 
 
 def test_base_presets_are_not_offered(tmp_path: Path) -> None:
@@ -400,7 +457,7 @@ def test_base_presets_are_not_offered(tmp_path: Path) -> None:
 def test_only_processes_that_accept_the_machine_are_compatible(tmp_path: Path) -> None:
     executable = _install_with_profiles(tmp_path)
     found = compatible_processes("Bambu Lab P1S 0.4 nozzle", executable)
-    assert "0.20mm Standard @BBL P1P" in found
+    assert "0.20mm Standard @BBL X1C" in found
     assert "0.20mm Standard @BBL A1M" not in found
     # Compatibility declared on a parent preset still counts.
     assert "0.16mm Optimal @BBL P1P" in found
@@ -456,7 +513,7 @@ def test_an_incompatible_pair_is_refused_before_the_slicer_runs(
             executable=executable,
         )
     # The message has to say what would work, not just what did not.
-    assert "0.20mm Standard @BBL P1P" in str(caught.value)
+    assert "0.20mm Standard @BBL X1C" in str(caught.value)
 
 
 def test_an_exported_profile_path_is_the_users_business(

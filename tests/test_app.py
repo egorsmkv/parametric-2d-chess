@@ -140,6 +140,30 @@ def test_demo_builds() -> None:
 BAMBU_ARGS = ("Bambu Lab P1S", "One of each piece (6)", 0.05, False, "", "", "")
 
 
+def test_the_machine_menu_offers_the_printers_nozzle_variants() -> None:
+    choices = gradio_app._machine_choices(gradio_app.PRINTERS["Bambu Lab P1S"])
+    # Automatic first, so the default needs no knowledge of preset names.
+    assert choices[0] == gradio_app.AUTO_PROFILE
+    assert len(choices) > 1
+    assert all("Bambu Lab P1S" in name for name in choices[1:])
+    assert any(name.endswith("0.4 nozzle") for name in choices)
+
+
+def test_the_automatic_entry_reads_as_unset() -> None:
+    assert gradio_app._chosen(gradio_app.AUTO_PROFILE) == ""
+    # A typed preset name or path still comes through, trimmed.
+    assert gradio_app._chosen("  Bambu Lab P1S 0.6 nozzle ") == "Bambu Lab P1S 0.6 nozzle"
+    assert gradio_app._chosen("/tmp/mine.json") == "/tmp/mine.json"
+
+
+def test_changing_the_printer_repoints_the_machine_menu() -> None:
+    machine, _ = gradio_app._profile_hints("Bambu Lab A1 mini")
+    choices = machine["choices"] if isinstance(machine, dict) else machine.choices
+    flat = [c[0] if isinstance(c, tuple) else c for c in choices]
+    assert all("A1 mini" in name for name in flat[1:])
+    assert not any("P1S" in name for name in flat)
+
+
 def test_bambu_button_returns_a_3mf_and_a_verdict() -> None:
     path_text, status = gradio_app.build_bambu(
         MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, *BAMBU_ARGS
