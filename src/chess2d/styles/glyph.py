@@ -34,11 +34,12 @@ def _skirt(half_width: float = 11.0, waist: float = 5.0) -> Sketch:
     """The wide flared base shared by every glyph."""
 
     def edges() -> None:
-        Line((0.0, 0.0), (half_width, 0.0))          # flat underside
-        Line((half_width, 0.0), (half_width, 2.2))   # straight rim
+        Line((0.0, 0.0), (half_width, 0.0))  # flat underside
+        Line((half_width, 0.0), (half_width, 2.2))  # straight rim
         Line((half_width, 2.2), (waist, SKIRT_TOP))  # single clean flare
         Line((waist, SKIRT_TOP), (0.0, SKIRT_TOP))
         Line((0.0, SKIRT_TOP), (0.0, 0.0))
+
     return revolved(edges)
 
 
@@ -104,10 +105,11 @@ def make_bishop(scale: float = 1.0) -> Sketch:
 
     def mitre() -> None:
         Line((0.0, 13.5), (7.4, 13.5))
-        Line((7.4, 13.5), (6.0, 22.0))               # straight taper, no spline
+        Line((7.4, 13.5), (6.0, 22.0))  # straight taper, no spline
         Line((6.0, 22.0), (2.6, 28.0))
         Line((2.6, 28.0), (0.0, 30.5))
         Line((0.0, 30.5), (0.0, 13.5))
+
     piece = _skirt(9.5, 4.6) + stem + revolved(mitre) + disc(0.0, 31.5, 2.4)
     slit = Pos(1.0, 23.0) * Rot(0, 0, 30) * rounded_bar(2.2, 8.0, -4.0, radius=0.8)
     return scaled(centered(piece - slit), scale)

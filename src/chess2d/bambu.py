@@ -108,60 +108,88 @@ class Printer:
 #: model name would tell you that.
 PRINTERS: dict[str, Printer] = {
     "Bambu Lab P1P": Printer(
-        "Bambu Lab P1P", (256.0, 256.0),
-        "Bambu Lab P1P 0.4 nozzle", "0.20mm Standard @BBL P1P",
+        "Bambu Lab P1P",
+        (256.0, 256.0),
+        "Bambu Lab P1P 0.4 nozzle",
+        "0.20mm Standard @BBL P1P",
     ),
     "Bambu Lab P1S": Printer(
-        "Bambu Lab P1S", (256.0, 256.0),
-        "Bambu Lab P1S 0.4 nozzle", "0.20mm Standard @BBL X1C",
+        "Bambu Lab P1S",
+        (256.0, 256.0),
+        "Bambu Lab P1S 0.4 nozzle",
+        "0.20mm Standard @BBL X1C",
     ),
     "Bambu Lab P2S": Printer(
-        "Bambu Lab P2S", (256.0, 256.0),
-        "Bambu Lab P2S 0.4 nozzle", "0.20mm Standard @BBL P2S",
+        "Bambu Lab P2S",
+        (256.0, 256.0),
+        "Bambu Lab P2S 0.4 nozzle",
+        "0.20mm Standard @BBL P2S",
     ),
     "Bambu Lab X1": Printer(
-        "Bambu Lab X1", (256.0, 256.0),
-        "Bambu Lab X1 0.4 nozzle", "0.20mm Standard @BBL X1C",
+        "Bambu Lab X1",
+        (256.0, 256.0),
+        "Bambu Lab X1 0.4 nozzle",
+        "0.20mm Standard @BBL X1C",
     ),
     "Bambu Lab X1 Carbon": Printer(
-        "Bambu Lab X1 Carbon", (256.0, 256.0),
-        "Bambu Lab X1 Carbon 0.4 nozzle", "0.20mm Standard @BBL X1C",
+        "Bambu Lab X1 Carbon",
+        (256.0, 256.0),
+        "Bambu Lab X1 Carbon 0.4 nozzle",
+        "0.20mm Standard @BBL X1C",
     ),
     "Bambu Lab X1E": Printer(
-        "Bambu Lab X1E", (256.0, 256.0),
-        "Bambu Lab X1E 0.4 nozzle", "0.20mm Standard @BBL X1C",
+        "Bambu Lab X1E",
+        (256.0, 256.0),
+        "Bambu Lab X1E 0.4 nozzle",
+        "0.20mm Standard @BBL X1C",
     ),
     "Bambu Lab X2D": Printer(
-        "Bambu Lab X2D", (256.0, 256.0),
-        "Bambu Lab X2D 0.4 nozzle", "0.20mm Standard @BBL X2D",
+        "Bambu Lab X2D",
+        (256.0, 256.0),
+        "Bambu Lab X2D 0.4 nozzle",
+        "0.20mm Standard @BBL X2D",
     ),
     "Bambu Lab A1 mini": Printer(
-        "Bambu Lab A1 mini", (180.0, 180.0),
-        "Bambu Lab A1 mini 0.4 nozzle", "0.20mm Standard @BBL A1M",
+        "Bambu Lab A1 mini",
+        (180.0, 180.0),
+        "Bambu Lab A1 mini 0.4 nozzle",
+        "0.20mm Standard @BBL A1M",
     ),
     "Bambu Lab A1": Printer(
-        "Bambu Lab A1", (256.0, 256.0),
-        "Bambu Lab A1 0.4 nozzle", "0.20mm Standard @BBL A1",
+        "Bambu Lab A1",
+        (256.0, 256.0),
+        "Bambu Lab A1 0.4 nozzle",
+        "0.20mm Standard @BBL A1",
     ),
     "Bambu Lab A2L": Printer(
-        "Bambu Lab A2L", (330.0, 320.0),
-        "Bambu Lab A2L 0.4 nozzle", "0.20mm Standard @BBL A2L",
+        "Bambu Lab A2L",
+        (330.0, 320.0),
+        "Bambu Lab A2L 0.4 nozzle",
+        "0.20mm Standard @BBL A2L",
     ),
     "Bambu Lab H2C": Printer(
-        "Bambu Lab H2C", (330.0, 320.0),
-        "Bambu Lab H2C 0.4 nozzle", "0.20mm Standard @BBL H2C",
+        "Bambu Lab H2C",
+        (330.0, 320.0),
+        "Bambu Lab H2C 0.4 nozzle",
+        "0.20mm Standard @BBL H2C",
     ),
     "Bambu Lab H2S": Printer(
-        "Bambu Lab H2S", (340.0, 320.0),
-        "Bambu Lab H2S 0.4 nozzle", "0.20mm Standard @BBL H2S",
+        "Bambu Lab H2S",
+        (340.0, 320.0),
+        "Bambu Lab H2S 0.4 nozzle",
+        "0.20mm Standard @BBL H2S",
     ),
     "Bambu Lab H2D": Printer(
-        "Bambu Lab H2D", (350.0, 320.0),
-        "Bambu Lab H2D 0.4 nozzle", "0.20mm Standard @BBL H2D",
+        "Bambu Lab H2D",
+        (350.0, 320.0),
+        "Bambu Lab H2D 0.4 nozzle",
+        "0.20mm Standard @BBL H2D",
     ),
     "Bambu Lab H2D Pro": Printer(
-        "Bambu Lab H2D Pro", (350.0, 320.0),
-        "Bambu Lab H2D Pro 0.4 nozzle", "0.20mm Standard @BBL H2DP",
+        "Bambu Lab H2D Pro",
+        (350.0, 320.0),
+        "Bambu Lab H2D Pro 0.4 nozzle",
+        "0.20mm Standard @BBL H2DP",
     ),
 }
 
@@ -342,9 +370,7 @@ def make_plate(
     }
 
     wanted = plate_parts(contents)
-    layout = arrange_plate(
-        [(piece_type, *footprint[piece_type]) for piece_type in wanted], printer
-    )
+    layout = arrange_plate([(piece_type, *footprint[piece_type]) for piece_type in wanted], printer)
 
     parts: list[Part] = []
     for placement in layout.placements:
@@ -388,9 +414,7 @@ def export_plate_3mf(
     parts, layout = make_plate(style=style, contents=contents, printer=printer)
 
     mesher = Mesher(unit=Unit.MM)
-    for index, (part, placement) in enumerate(
-        zip(parts, layout.placements, strict=True), start=1
-    ):
+    for index, (part, placement) in enumerate(zip(parts, layout.placements, strict=True), start=1):
         mesher.add_shape(
             part,
             linear_deflection=tolerance,
@@ -645,11 +669,7 @@ def flatten_profile(path: Path) -> dict[str, Any]:
     return merged
 
 
-
-
-def compatible_processes(
-    machine: str, executable: str | Path | None = None
-) -> list[str]:
+def compatible_processes(machine: str, executable: str | Path | None = None) -> list[str]:
     """Process presets the installation says can slice for ``machine``.
 
     A preset that names no compatible printers at all is included: silence is
@@ -728,7 +748,8 @@ def _machine_for_model(model: str, machines: dict[str, Path]) -> str | None:
     which carries the nozzle size and varies in wording.
     """
     candidates = [
-        name for name, path in machines.items()
+        name
+        for name, path in machines.items()
         if flatten_profile(path).get("printer_model") == model
     ]
     if not candidates:
@@ -741,9 +762,7 @@ def _machine_for_model(model: str, machines: dict[str, Path]) -> str | None:
 NOZZLE_SIZES: tuple[str, ...] = ("0.2", "0.4", "0.6", "0.8")
 
 
-def machine_profiles(
-    printer: Printer, executable: str | Path | None = None
-) -> list[str]:
+def machine_profiles(printer: Printer, executable: str | Path | None = None) -> list[str]:
     """The machine presets worth offering for one printer, nozzle order.
 
     Read from the installation when there is one. The fallback is generated
@@ -753,7 +772,8 @@ def machine_profiles(
     machines = system_profiles("machine", executable)
     installed = sorted(
         (
-            name for name, path in machines.items()
+            name
+            for name, path in machines.items()
             if flatten_profile(path).get("printer_model") == printer.name
         ),
         key=lambda name: _nozzle_of(name),
@@ -831,10 +851,7 @@ def read_slice_report(sliced: str | Path) -> SliceReport | None:
     if plate is None:
         return None
 
-    values = {
-        item.get("key"): item.get("value")
-        for item in plate.findall("metadata")
-    }
+    values = {item.get("key"): item.get("value") for item in plate.findall("metadata")}
 
     def number(key: str) -> float | None:
         try:
@@ -861,9 +878,7 @@ def read_slice_report(sliced: str | Path) -> SliceReport | None:
     )
 
 
-def _prepare_profile(
-    profile: str | Path, kind: str, executable: str | Path, scratch: Path
-) -> Path:
+def _prepare_profile(profile: str | Path, kind: str, executable: str | Path, scratch: Path) -> Path:
     """The file to hand ``--load-settings`` for one preset.
 
     A path the caller supplied is passed through untouched -- a preset exported
@@ -972,9 +987,7 @@ def slice_with_bambu_studio(
         except OSError as error:  # pragma: no cover - depends on the local install
             raise BambuStudioError(f"could not run Bambu Studio: {error}") from error
         except subprocess.TimeoutExpired as error:  # pragma: no cover
-            raise BambuStudioError(
-                f"Bambu Studio timed out after {timeout:.0f}s"
-            ) from error
+            raise BambuStudioError(f"Bambu Studio timed out after {timeout:.0f}s") from error
 
     if result.returncode != 0 or not out.exists():
         # The CLI reports most failures on stdout, not stderr.

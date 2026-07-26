@@ -66,9 +66,9 @@ def make_knight(scale: float = 1.0, facing: str = "left") -> Sketch:
         (-1.0, 28.0),
         (-6.0, 29.0),
         (-10.5, 26.0),
-        (-12.0, 21.0),    # the nose of the scroll (leftmost)
+        (-12.0, 21.0),  # the nose of the scroll (leftmost)
         (-9.0, 18.5),
-        (-5.5, 19.5),     # the curl's small return bump
+        (-5.5, 19.5),  # the curl's small return bump
         (-4.0, 15.0),
         (-3.0, 8.0),
         (-2.0, 1.5),

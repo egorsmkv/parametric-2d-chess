@@ -107,12 +107,8 @@ def test_report_button_returns_a_pdf() -> None:
 def test_report_reflects_the_chosen_material() -> None:
     # A denser material must not silently produce an identical document.
     common = (MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3)
-    light = Path(gradio_app.build_report(
-        *common, "ABS", 1.75, 25.0, 0.2, 15
-    )).read_bytes()
-    heavy = Path(gradio_app.build_report(
-        *common, "PETG", 1.75, 25.0, 0.2, 15
-    )).read_bytes()
+    light = Path(gradio_app.build_report(*common, "ABS", 1.75, 25.0, 0.2, 15)).read_bytes()
+    heavy = Path(gradio_app.build_report(*common, "PETG", 1.75, 25.0, 0.2, 15)).read_bytes()
     assert light != heavy
 
 
@@ -178,8 +174,19 @@ def test_bambu_button_returns_a_3mf_and_a_verdict() -> None:
 
 def test_bambu_filename_records_the_plate_contents() -> None:
     path_text, _ = gradio_app.build_bambu(
-        MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3,
-        "Bambu Lab A1 mini", "Full set (32)", 0.1, False, "", "", "",
+        MODE_LABELS[0],
+        DEFAULT_STYLE,
+        MEDIUM_BOARD,
+        MEDIUM_FIGURE,
+        2,
+        3,
+        "Bambu Lab A1 mini",
+        "Full set (32)",
+        0.1,
+        False,
+        "",
+        "",
+        "",
     )
     assert Path(path_text).name.endswith("_full-plate.3mf")
 
@@ -192,8 +199,19 @@ def test_slicing_without_bambu_studio_still_returns_the_plain_plate(
     monkeypatch.setattr(gradio_app, "find_bambu_studio", lambda _=None: None)
     monkeypatch.setattr("chess2d.bambu.find_bambu_studio", lambda _=None: None)
     path_text, status = gradio_app.build_bambu(
-        MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3,
-        "Bambu Lab P1S", "One of each piece (6)", 0.1, True, "", "", "",
+        MODE_LABELS[0],
+        DEFAULT_STYLE,
+        MEDIUM_BOARD,
+        MEDIUM_FIGURE,
+        2,
+        3,
+        "Bambu Lab P1S",
+        "One of each piece (6)",
+        0.1,
+        True,
+        "",
+        "",
+        "",
     )
     assert Path(path_text).suffix == ".3mf"
     assert "Not sliced" in status

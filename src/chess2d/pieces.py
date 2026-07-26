@@ -58,6 +58,7 @@ __all__ = [
 # Dispatch, geometry bundle and thin solids
 # --------------------------------------------------------------------------
 
+
 def _fit_to_square(figure: Sketch, square_size: float) -> Sketch:
     """Scale a composed figure so it nearly fills its square (max legibility)."""
     height = figure.bounding_box().size.Y
@@ -87,9 +88,7 @@ def make_piece(
     """
     spec = STYLES[style]
     if piece_type is PieceType.KNIGHT:
-        sketch = spec.generators[piece_type](
-            scale=1.0, facing="right" if mirrored else "left"
-        )
+        sketch = spec.generators[piece_type](scale=1.0, facing="right" if mirrored else "left")
     else:
         sketch = spec.generators[piece_type](scale=1.0)
         if mirrored:
@@ -102,9 +101,7 @@ def make_piece(
         )
         sketch = _fit_to_square(composed, square_size)
     elif mode is FigureMode.FUSED:
-        composed = fused_two_sided(
-            sketch, keep=spec.fused_keep, overlap=spec.fused_overlap
-        )
+        composed = fused_two_sided(sketch, keep=spec.fused_keep, overlap=spec.fused_overlap)
         sketch = _fit_to_square(composed, square_size)
     else:
         # SINGLE keeps its native relative proportions (king taller than pawn),
@@ -135,8 +132,12 @@ def make_piece_geometry(
 ) -> PieceGeometry:
     """Bundle the fill face, an outline and an optional thin solid for a piece."""
     fill = make_piece(
-        piece_type, scale=scale, mirrored=mirrored, mode=mode,
-        square_size=square_size, style=style,
+        piece_type,
+        scale=scale,
+        mirrored=mirrored,
+        mode=mode,
+        square_size=square_size,
+        style=style,
     )
     ring = outline_ring(fill, outline_width)
     outline: Shape = ring if ring is not None else outline_wires(fill)
@@ -153,7 +154,5 @@ def make_piece_solid(
     style: PieceStyle = PieceStyle.STAUNTON,
 ) -> Part:
     """Extrude a piece silhouette into a thin flat token (spec section 20)."""
-    sketch = make_piece(
-        piece_type, scale=scale, mode=mode, square_size=square_size, style=style
-    )
+    sketch = make_piece(piece_type, scale=scale, mode=mode, square_size=square_size, style=style)
     return extrude(sketch, amount=thickness)

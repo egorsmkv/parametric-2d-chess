@@ -106,9 +106,7 @@ def main(argv: list[str]) -> int:
         print(f"  {path.relative_to(staging)}")
 
     # Fail fast on an incomplete payload rather than publishing a broken Space.
-    required = {
-        Path("app.py"), Path("README.md"), Path("requirements.txt"), Path("Dockerfile")
-    }
+    required = {Path("app.py"), Path("README.md"), Path("requirements.txt"), Path("Dockerfile")}
     present = {f.relative_to(staging) for f in files}
     if missing := required - present:
         raise SystemExit(f"payload is missing: {', '.join(str(m) for m in sorted(missing))}")

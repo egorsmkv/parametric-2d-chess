@@ -65,9 +65,7 @@ def export_piece_svg(
 ) -> Path:
     """Write a single filled piece silhouette as an SVG."""
     out = _ensure_parent(path)
-    sketch = make_piece(
-        piece_type, scale=scale, mode=mode, square_size=square_size, style=style
-    )
+    sketch = make_piece(piece_type, scale=scale, mode=mode, square_size=square_size, style=style)
     exporter = ExportSVG(fit_to_stroke=True)
     exporter.add_layer("fill", fill_color=_color(fill), line_color=Color(0.15, 0.15, 0.15))
     exporter.add_shape(sketch, layer="fill")
@@ -150,8 +148,12 @@ def export_piece_step(
 ) -> Path:
     out = _ensure_parent(path)
     solid = make_piece_solid(
-        piece_type, thickness=thickness, scale=scale, mode=mode,
-        square_size=square_size, style=style,
+        piece_type,
+        thickness=thickness,
+        scale=scale,
+        mode=mode,
+        square_size=square_size,
+        style=style,
     )
     export_step(solid, str(out))
     return out
@@ -168,8 +170,12 @@ def export_piece_stl(
 ) -> Path:
     out = _ensure_parent(path)
     solid = make_piece_solid(
-        piece_type, thickness=thickness, scale=scale, mode=mode,
-        square_size=square_size, style=style,
+        piece_type,
+        thickness=thickness,
+        scale=scale,
+        mode=mode,
+        square_size=square_size,
+        style=style,
     )
     export_stl(solid, str(out))
     return out
@@ -188,8 +194,12 @@ def export_flat_pieces_step(
     solids = []
     for i, pt in enumerate(PieceType):
         solid = make_piece_solid(
-            pt, thickness=thickness, scale=scale, mode=mode,
-            square_size=square_size, style=style,
+            pt,
+            thickness=thickness,
+            scale=scale,
+            mode=mode,
+            square_size=square_size,
+            style=style,
         )
         solids.append(Pos((i - 2.5) * square_size * 0.95, 0, 0) * solid)
     compound = Compound(children=solids)
@@ -226,60 +236,95 @@ def generate_all(
     svg_dir = root / "svg"
     written.append(export_board_svg(board, svg_dir / "board.svg"))
     for pt in PieceType:
-        written.append(export_piece_svg(
-            pt, svg_dir / f"{pt.value}.svg", style.piece_scale,
-            mode=style.figure_mode, square_size=style.square_size,
-            style=style.piece_style))
+        written.append(
+            export_piece_svg(
+                pt,
+                svg_dir / f"{pt.value}.svg",
+                style.piece_scale,
+                mode=style.figure_mode,
+                square_size=style.square_size,
+                style=style.piece_style,
+            )
+        )
     written.append(export_composition_svg(composition, svg_dir / "initial_position.svg"))
 
     # --- DXF ---
     dxf_dir = root / "dxf"
-    written.append(export_dxf({"board": board.light_squares + board.dark_squares},
-                              dxf_dir / "board.dxf"))
+    written.append(
+        export_dxf({"board": board.light_squares + board.dark_squares}, dxf_dir / "board.dxf")
+    )
     # Space the pieces out so they do not overlap in the DXF.
     spaced = {
         pt.value: Pos((i - 2.5) * style.square_size * 0.95, 0)
-        * make_piece(pt, scale=style.piece_scale, mode=style.figure_mode,
-                     square_size=style.square_size, style=style.piece_style)
+        * make_piece(
+            pt,
+            scale=style.piece_scale,
+            mode=style.figure_mode,
+            square_size=style.square_size,
+            style=style.piece_style,
+        )
         for i, pt in enumerate(PieceType)
     }
     written.append(export_dxf(spaced, dxf_dir / "pieces.dxf"))
-    written.append(export_dxf(
-        {
-            "light": composition.board.light_squares,
-            "dark": composition.board.dark_squares,
-            "white_pieces": composition.white_pieces,
-            "black_pieces": composition.black_pieces,
-        },
-        dxf_dir / "initial_position.dxf",
-    ))
+    written.append(
+        export_dxf(
+            {
+                "light": composition.board.light_squares,
+                "dark": composition.board.dark_squares,
+                "white_pieces": composition.white_pieces,
+                "black_pieces": composition.black_pieces,
+            },
+            dxf_dir / "initial_position.dxf",
+        )
+    )
 
     if with_solids:
         step_dir = root / "step"
         stl_dir = root / "stl"
         board_solid_path = step_dir / "board.step"
         _ensure_parent(board_solid_path)
-        export_step(extrude(board.light_squares + board.dark_squares,
-                            amount=style.board_thickness), str(board_solid_path))
+        export_step(
+            extrude(board.light_squares + board.dark_squares, amount=style.board_thickness),
+            str(board_solid_path),
+        )
         written.append(board_solid_path)
-        written.append(export_flat_pieces_step(
-            step_dir / "flat_pieces.step", style.piece_thickness, style.piece_scale,
-            mode=style.figure_mode, square_size=style.square_size,
-            style=style.piece_style))
+        written.append(
+            export_flat_pieces_step(
+                step_dir / "flat_pieces.step",
+                style.piece_thickness,
+                style.piece_scale,
+                mode=style.figure_mode,
+                square_size=style.square_size,
+                style=style.piece_style,
+            )
+        )
         for pt in PieceType:
-            written.append(export_piece_stl(
-                pt, stl_dir / f"{pt.value}.stl", style.piece_thickness, style.piece_scale,
-                mode=style.figure_mode, square_size=style.square_size,
-            style=style.piece_style))
+            written.append(
+                export_piece_stl(
+                    pt,
+                    stl_dir / f"{pt.value}.stl",
+                    style.piece_thickness,
+                    style.piece_scale,
+                    mode=style.figure_mode,
+                    square_size=style.square_size,
+                    style=style.piece_style,
+                )
+            )
 
     if with_3mf:
         # Imported here: the 3MF writer is only needed on this branch, and the
         # module reaches back into this one's siblings for the plate layout.
         from .bambu import export_pieces_3mf  # noqa: PLC0415
 
-        written.append(export_pieces_3mf(
-            root / "3mf" / "pieces.3mf", style.piece_thickness, style.piece_scale,
-            mode=style.figure_mode, square_size=style.square_size,
-            style=style.piece_style))
+        written.append(
+            export_pieces_3mf(
+                root / "3mf" / "pieces.3mf",
+                style.piece_thickness,
+                style.piece_scale,
+                mode=style.figure_mode,
+                square_size=style.square_size,
+                style=style.piece_style,
+            )
+        )
 
     return written

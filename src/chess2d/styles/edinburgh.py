@@ -22,12 +22,13 @@ def _column(half_width: float, top: float) -> Sketch:
     """A straight cylindrical shaft on a stepped disc foot."""
 
     def edges() -> None:
-        Line((0.0, 0.0), (half_width + 2.5, 0.0))          # wide foot
+        Line((0.0, 0.0), (half_width + 2.5, 0.0))  # wide foot
         Line((half_width + 2.5, 0.0), (half_width + 2.5, 2.2))
         Line((half_width + 2.5, 2.2), (half_width, FOOT_HEIGHT))  # single step in
-        Line((half_width, FOOT_HEIGHT), (half_width, top))        # straight shaft
+        Line((half_width, FOOT_HEIGHT), (half_width, top))  # straight shaft
         Line((half_width, top), (0.0, top))
         Line((0.0, top), (0.0, 0.0))
+
     return revolved(edges)
 
 
@@ -43,6 +44,7 @@ def _cone(y: float, half_width: float, height: float) -> Sketch:
         Line((0.0, y), (half_width, y))
         Line((half_width, y), (0.0, y + height))
         Line((0.0, y + height), (0.0, y))
+
     return revolved(edges)
 
 
@@ -99,6 +101,7 @@ def make_bishop(scale: float = 1.0) -> Sketch:
         Line((0.0, top), (4.0, top))
         Line((4.0, top), (0.0, top + 7.0))
         Line((0.0, top + 7.0), (0.0, top))
+
     piece = column + _band(top - 2.0, 4.0) + revolved(cap)
     slit = Pos(0.6, top + 3.0) * Rot(0, 0, 24) * rounded_bar(1.4, 5.0, -2.5, radius=0.5)
     return scaled(centered(piece - slit), scale)
@@ -116,10 +119,8 @@ def make_queen(scale: float = 1.0) -> Sketch:
 def make_king(scale: float = 1.0) -> Sketch:
     """King: a broad column with a wide flat cross -- squat where the queen is sharp."""
     top = 30.0
-    column = _column(5.2, top)                          # visibly broader shaft
+    column = _column(5.2, top)  # visibly broader shaft
     band = rounded_bar(13.0, 3.0, top, radius=0.4)
     cross_v = rounded_bar(3.0, 9.0, top + 3.0, radius=0.4)
-    cross_h = rounded_bar(11.0, 2.6, top + 6.5, radius=0.4)   # wide arms
-    return scaled(
-        centered(column + _band(top - 2.4, 6.0) + band + cross_v + cross_h), scale
-    )
+    cross_h = rounded_bar(11.0, 2.6, top + 6.5, radius=0.4)  # wide arms
+    return scaled(centered(column + _band(top - 2.4, 6.0) + band + cross_v + cross_h), scale)

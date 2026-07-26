@@ -47,8 +47,15 @@ def test_payload_bundles_the_package(payload: Path) -> None:
     assert (package / "gradio_app.py").is_file()
     # Everything the app imports must ship with it.
     for module in (
-        "assembly", "bambu", "board", "estimate", "export", "geometry",
-        "parameters", "pieces", "report",
+        "assembly",
+        "bambu",
+        "board",
+        "estimate",
+        "export",
+        "geometry",
+        "parameters",
+        "pieces",
+        "report",
     ):
         assert (package / f"{module}.py").is_file(), f"chess2d/{module}.py missing"
 
@@ -56,8 +63,15 @@ def test_payload_bundles_the_package(payload: Path) -> None:
     styles = package / "styles"
     assert (styles / "__init__.py").is_file(), "chess2d/styles/ missing from payload"
     for style in (
-        "staunton", "regence", "selenus", "st_george", "edinburgh",
-        "bauhaus", "man_ray", "glyph", "lewis",
+        "staunton",
+        "regence",
+        "selenus",
+        "st_george",
+        "edinburgh",
+        "bauhaus",
+        "man_ray",
+        "glyph",
+        "lewis",
     ):
         assert (styles / f"{style}.py").is_file(), f"chess2d/styles/{style}.py missing"
 
@@ -116,8 +130,13 @@ def test_dry_run_does_not_need_credentials(tmp_path: Path) -> None:
     env = {k: v for k, v in os.environ.items() if k != "HF_TOKEN"}
     result = subprocess.run(
         [
-            sys.executable, str(SCRIPT), "--space-id", "dry/run",
-            "--dry-run", "--staging", str(tmp_path / "out"),
+            sys.executable,
+            str(SCRIPT),
+            "--space-id",
+            "dry/run",
+            "--dry-run",
+            "--staging",
+            str(tmp_path / "out"),
         ],
         capture_output=True,
         text=True,
@@ -131,8 +150,12 @@ def test_deploy_without_a_token_fails_clearly(tmp_path: Path) -> None:
     env = {k: v for k, v in os.environ.items() if k != "HF_TOKEN"}
     result = subprocess.run(
         [
-            sys.executable, str(SCRIPT), "--space-id", "dry/run",
-            "--staging", str(tmp_path / "out"),
+            sys.executable,
+            str(SCRIPT),
+            "--space-id",
+            "dry/run",
+            "--staging",
+            str(tmp_path / "out"),
         ],
         capture_output=True,
         text=True,

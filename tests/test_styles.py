@@ -48,13 +48,9 @@ def test_piece_is_a_single_connected_face(
 
 @pytest.mark.parametrize(("style", "mode"), STYLES_AND_MODES)
 @pytest.mark.parametrize("square_size", list(BOARD_SIZE_PRESETS.values()))
-def test_pieces_fit_their_square(
-    style: PieceStyle, mode: FigureMode, square_size: float
-) -> None:
+def test_pieces_fit_their_square(style: PieceStyle, mode: FigureMode, square_size: float) -> None:
     for piece_type in PieceType:
-        box = make_piece(
-            piece_type, mode=mode, style=style, square_size=square_size
-        ).bounding_box()
+        box = make_piece(piece_type, mode=mode, style=style, square_size=square_size).bounding_box()
         assert square_size + 1e-6 >= box.size.X
         assert square_size + 1e-6 >= box.size.Y
 
@@ -90,9 +86,7 @@ def _overlap(first: object, second: object) -> float:
 
 
 @pytest.mark.parametrize(("style", "mode"), STYLES_AND_MODES)
-def test_the_six_pieces_are_visually_distinguishable(
-    style: PieceStyle, mode: FigureMode
-) -> None:
+def test_the_six_pieces_are_visually_distinguishable(style: PieceStyle, mode: FigureMode) -> None:
     """No two ranks may resolve to near-identical shapes.
 
     Compares the silhouettes themselves rather than area and bounding box: in
@@ -106,8 +100,7 @@ def test_the_six_pieces_are_visually_distinguishable(
     is fitted to the same square.
     """
     pieces = {
-        piece_type: make_piece(piece_type, mode=mode, style=style)
-        for piece_type in PieceType
+        piece_type: make_piece(piece_type, mode=mode, style=style) for piece_type in PieceType
     }
     for left, right in itertools.combinations(PieceType, 2):
         overlap = _overlap(pieces[left], pieces[right])
@@ -121,15 +114,14 @@ def test_the_six_pieces_are_visually_distinguishable(
 def test_knight_is_asymmetric_in_every_style(style: PieceStyle) -> None:
     # Two-sided composition relies on the knight having a handedness.
     left = make_piece(PieceType.KNIGHT, mode=FigureMode.SINGLE, style=style)
-    right = make_piece(
-        PieceType.KNIGHT, mode=FigureMode.SINGLE, style=style, mirrored=True
-    )
+    right = make_piece(PieceType.KNIGHT, mode=FigureMode.SINGLE, style=style, mirrored=True)
     left_box, right_box = left.bounding_box(), right.bounding_box()
     assert pytest.approx(left_box.size.X, abs=1e-6) == right_box.size.X
     # A symmetric shape would be unchanged by mirroring; these must differ.
-    assert abs(left.center().X - right.center().X) > 1e-3 or pytest.approx(
-        right_box.min.X, abs=1e-9
-    ) != left_box.min.X
+    assert (
+        abs(left.center().X - right.center().X) > 1e-3
+        or pytest.approx(right_box.min.X, abs=1e-9) != left_box.min.X
+    )
 
 
 @pytest.mark.parametrize("style", list(PieceStyle))
@@ -147,9 +139,7 @@ def test_native_pieces_share_a_height_range(style: PieceStyle) -> None:
     assert min(heights) > SQUARE_SIZE * 0.35
     assert max(heights) < SQUARE_SIZE * 0.95
     # The king should not be the shortest piece in any style.
-    king = make_piece(
-        PieceType.KING, mode=FigureMode.SINGLE, style=style
-    ).bounding_box().size.Y
+    king = make_piece(PieceType.KING, mode=FigureMode.SINGLE, style=style).bounding_box().size.Y
     assert king == pytest.approx(max(heights), rel=1e-9)
 
 

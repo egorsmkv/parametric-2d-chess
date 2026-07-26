@@ -282,9 +282,7 @@ def estimate_set(
 
     # The board solid the exporter writes is the playing surface only (the
     # border is a 2D outline), so measure exactly that.
-    board_geometry = make_board(
-        square_size=style.square_size, border_width=style.border_width
-    )
+    board_geometry = make_board(square_size=style.square_size, border_width=style.border_width)
     # The squares tile edge to edge without overlapping, so the sketch area is
     # already exact here -- no need to extrude a large solid to check.
     squares = board_geometry.light_squares + board_geometry.dark_squares

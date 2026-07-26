@@ -92,8 +92,10 @@ def main(argv: list[str]) -> int:
     output_dir = args[0] if args else "output"
 
     style = ChessStyle(
-        figure_mode=mode, piece_style=piece_style,
-        square_size=square_size, piece_scale=piece_scale,
+        figure_mode=mode,
+        piece_style=piece_style,
+        square_size=square_size,
+        piece_scale=piece_scale,
     )
     print(
         f"Generating chess set into {output_dir!r} "

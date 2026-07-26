@@ -94,12 +94,11 @@ def test_parts_do_not_overlap() -> None:
 
     def overlaps(a: Placement, b: Placement) -> bool:
         return (
-            abs(a.x - b.x) < (a.width + b.width) / 2
-            and abs(a.y - b.y) < (a.height + b.height) / 2
+            abs(a.x - b.x) < (a.width + b.width) / 2 and abs(a.y - b.y) < (a.height + b.height) / 2
         )
 
     for i, first in enumerate(layout.placements):
-        for second in layout.placements[i + 1:]:
+        for second in layout.placements[i + 1 :]:
             assert not overlaps(first, second)
 
 
@@ -161,9 +160,7 @@ def test_3mf_geometry_is_millimetres_in_the_positive_quadrant(tmp_path: Path) ->
     model = zipfile.ZipFile(path).read("3D/3dmodel.model").decode()
     vertices = [
         tuple(float(value) for value in match)
-        for match in re.findall(
-            r'<vertex x="([-\d.e+]+)" y="([-\d.e+]+)" z="([-\d.e+]+)"', model
-        )
+        for match in re.findall(r'<vertex x="([-\d.e+]+)" y="([-\d.e+]+)" z="([-\d.e+]+)"', model)
     ]
     assert vertices
     assert min(x for x, _, _ in vertices) >= 0
@@ -304,23 +301,38 @@ def _install_with_profiles(tmp_path: Path) -> Path:
 
     # Machines inherit too: the leaf carries overrides, the base the bulk.
     write(
-        "machine", "fdm_machine_bbl",
-        {"type": "machine", "instantiation": "false",
-         "printable_height": "250", "gcode_flavor": "marlin"},
+        "machine",
+        "fdm_machine_bbl",
+        {
+            "type": "machine",
+            "instantiation": "false",
+            "printable_height": "250",
+            "gcode_flavor": "marlin",
+        },
     )
     write(
-        "machine", "Bambu Lab P1S 0.4 nozzle",
-        {"type": "machine", "inherits": "fdm_machine_bbl",
-         "printer_model": "Bambu Lab P1S", "printer_variant": "0.4",
-         "default_print_profile": "0.20mm Standard @BBL X1C",
-         "default_filament_profile": ["Bambu PLA Basic @BBL P1S 0.4 nozzle"]},
+        "machine",
+        "Bambu Lab P1S 0.4 nozzle",
+        {
+            "type": "machine",
+            "inherits": "fdm_machine_bbl",
+            "printer_model": "Bambu Lab P1S",
+            "printer_variant": "0.4",
+            "default_print_profile": "0.20mm Standard @BBL X1C",
+            "default_filament_profile": ["Bambu PLA Basic @BBL P1S 0.4 nozzle"],
+        },
     )
     # A second nozzle, which takes an entirely different set of processes.
     write(
-        "machine", "Bambu Lab P1S 0.6 nozzle",
-        {"type": "machine", "inherits": "fdm_machine_bbl",
-         "printer_model": "Bambu Lab P1S", "printer_variant": "0.6",
-         "default_print_profile": "0.30mm Standard @BBL X1C 0.6 nozzle"},
+        "machine",
+        "Bambu Lab P1S 0.6 nozzle",
+        {
+            "type": "machine",
+            "inherits": "fdm_machine_bbl",
+            "printer_model": "Bambu Lab P1S",
+            "printer_variant": "0.6",
+            "default_print_profile": "0.30mm Standard @BBL X1C 0.6 nozzle",
+        },
     )
     write("filament", "Bambu PLA Basic @BBL P1S 0.4 nozzle", {"type": "filament"})
     write("machine", "Bambu Lab A1 mini 0.4 nozzle", {"type": "machine"})
@@ -332,11 +344,13 @@ def _install_with_profiles(tmp_path: Path) -> Path:
     write("process", "0.20mm Standard @BBL X1C", {"compatible_printers": p1s})
     write("process", "0.08mm Extra Fine @BBL P1P", {"compatible_printers": p1s})
     write(
-        "process", "0.30mm Standard @BBL X1C 0.6 nozzle",
+        "process",
+        "0.30mm Standard @BBL X1C 0.6 nozzle",
         {"compatible_printers": ["Bambu Lab P1S 0.6 nozzle"]},
     )
     write(
-        "process", "0.20mm Standard @BBL A1M",
+        "process",
+        "0.20mm Standard @BBL A1M",
         {"compatible_printers": ["Bambu Lab A1 mini 0.4 nozzle"]},
     )
     # Inherits its compatibility rather than declaring it.
@@ -390,15 +404,15 @@ def test_the_slicer_is_handed_a_complete_config_not_a_fragment(
     def fake_run(command: list[str], **_: object) -> Result:
         for path in command[command.index("--load-settings") + 1].split(";"):
             handed[Path(path).stem] = json.loads(Path(path).read_text(encoding="utf-8"))
-        Path(command[command.index("--export-3mf") + 1]).write_text(
-            "sliced", encoding="utf-8"
-        )
+        Path(command[command.index("--export-3mf") + 1]).write_text("sliced", encoding="utf-8")
         return Result()
 
     monkeypatch.setattr("chess2d.bambu.subprocess.run", fake_run)
     slice_with_bambu_studio(
-        tmp_path / "plate.3mf", tmp_path / "out.gcode.3mf",
-        machine="Bambu Lab P1S 0.4 nozzle", process="0.16mm Optimal @BBL P1P",
+        tmp_path / "plate.3mf",
+        tmp_path / "out.gcode.3mf",
+        machine="Bambu Lab P1S 0.4 nozzle",
+        process="0.16mm Optimal @BBL P1P",
         executable=executable,
     )
 
@@ -419,8 +433,10 @@ def test_the_machine_menu_lists_the_installed_nozzle_variants(tmp_path: Path) ->
 def test_the_machine_menu_falls_back_without_an_installation(tmp_path: Path) -> None:
     offered = machine_profiles(PRINTERS["Bambu Lab A1"], tmp_path / "nothing")
     assert offered == [
-        "Bambu Lab A1 0.2 nozzle", "Bambu Lab A1 0.4 nozzle",
-        "Bambu Lab A1 0.6 nozzle", "Bambu Lab A1 0.8 nozzle",
+        "Bambu Lab A1 0.2 nozzle",
+        "Bambu Lab A1 0.4 nozzle",
+        "Bambu Lab A1 0.6 nozzle",
+        "Bambu Lab A1 0.8 nozzle",
     ]
 
 
@@ -440,9 +456,7 @@ def test_an_incompatible_preference_does_not_survive_a_nozzle_change(
     tmp_path: Path,
 ) -> None:
     executable = _install_with_profiles(tmp_path)
-    chosen = resolve_process(
-        "Bambu Lab P1S 0.6 nozzle", "0.20mm Standard @BBL X1C", executable
-    )
+    chosen = resolve_process("Bambu Lab P1S 0.6 nozzle", "0.20mm Standard @BBL X1C", executable)
     assert chosen != "0.20mm Standard @BBL X1C"
     assert chosen in compatible_processes("Bambu Lab P1S 0.6 nozzle", executable)
 
@@ -507,7 +521,8 @@ def test_an_incompatible_pair_is_refused_before_the_slicer_runs(
     monkeypatch.setattr("chess2d.bambu.subprocess.run", fail)
     with pytest.raises(BambuStudioError) as caught:
         slice_with_bambu_studio(
-            tmp_path / "plate.3mf", tmp_path / "out.gcode.3mf",
+            tmp_path / "plate.3mf",
+            tmp_path / "out.gcode.3mf",
             machine="Bambu Lab P1S 0.4 nozzle",
             process="0.20mm Standard @BBL A1M",
             executable=executable,
@@ -533,15 +548,16 @@ def test_an_exported_profile_path_is_the_users_business(
 
     def fake_run(command: list[str], **_: object) -> Result:
         ran.append(command)
-        Path(command[command.index("--export-3mf") + 1]).write_text(
-            "sliced", encoding="utf-8"
-        )
+        Path(command[command.index("--export-3mf") + 1]).write_text("sliced", encoding="utf-8")
         return Result()
 
     monkeypatch.setattr("chess2d.bambu.subprocess.run", fake_run)
     slice_with_bambu_studio(
-        tmp_path / "plate.3mf", tmp_path / "out.gcode.3mf",
-        machine="Bambu Lab P1S 0.4 nozzle", process=mine, executable=executable,
+        tmp_path / "plate.3mf",
+        tmp_path / "out.gcode.3mf",
+        machine="Bambu Lab P1S 0.4 nozzle",
+        process=mine,
+        executable=executable,
     )
     assert ran, "the slice should have been attempted"
 
@@ -568,9 +584,7 @@ def test_the_slice_command_carries_the_profiles_and_output(
                 data = json.loads(Path(path).read_text(encoding="utf-8"))
                 presets.append(str(data.get("name", "")))
         # Stand in for the slicer: the wrapper checks the file was written.
-        Path(command[command.index("--export-3mf") + 1]).write_text(
-            "sliced", encoding="utf-8"
-        )
+        Path(command[command.index("--export-3mf") + 1]).write_text("sliced", encoding="utf-8")
         return Result()
 
     monkeypatch.setattr("chess2d.bambu.subprocess.run", fake_run)
@@ -648,9 +662,7 @@ def test_the_menu_covers_every_bambu_model_the_installation_knows() -> None:
         if isinstance(model := flatten_profile(path).get("printer_model"), str)
         and model.startswith("Bambu Lab")
     }
-    assert installed <= set(PRINTERS), (
-        f"missing from PRINTERS: {sorted(installed - set(PRINTERS))}"
-    )
+    assert installed <= set(PRINTERS), f"missing from PRINTERS: {sorted(installed - set(PRINTERS))}"
 
 
 @needs_bambu_studio
@@ -660,8 +672,11 @@ def test_a_plate_really_slices(tmp_path: Path) -> None:
     machine, process = resolve_printer_profiles(printer)
 
     sliced = slice_with_bambu_studio(
-        plate, tmp_path / "plate.gcode.3mf",
-        machine=machine, process=process, filament=default_filament(machine),
+        plate,
+        tmp_path / "plate.gcode.3mf",
+        machine=machine,
+        process=process,
+        filament=default_filament(machine),
         timeout=420,
     )
 

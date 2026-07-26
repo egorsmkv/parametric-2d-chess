@@ -42,6 +42,7 @@ def _foot(width: float) -> Sketch:
         Line((width * 0.78, 3.0), (width * 0.78, 5.2))
         Line((width * 0.78, 5.2), (0.0, 5.2))
         Line((0.0, 5.2), (0.0, 0.0))
+
     return revolved(edges)
 
 
@@ -100,6 +101,7 @@ def make_bishop(scale: float = 1.0) -> Sketch:
         Line((0.0, top), (4.6, top))
         Spline((4.6, top), (4.4, top + 4.0), (2.6, top + 8.0), (0.0, top + 10.6))
         Line((0.0, top + 10.6), (0.0, top))
+
     piece = _foot(9.0) + body + revolved(mitre)
     slit = Pos(0.6, top + 5.2) * Rot(0, 0, 26) * rounded_bar(1.5, 5.4, -2.7, radius=0.6)
     return scaled(centered(piece - slit), scale)

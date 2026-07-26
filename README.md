@@ -240,11 +240,12 @@ from chess2d import find_bambu_studio, slice_with_bambu_studio
 path, layout = export_plate_3mf(
     "plate.3mf", ChessStyle(), PlateContents.FULL, PRINTERS["Bambu Lab P1S"]
 )
-print(layout.summary())   # "32 parts, 240 × 149 mm — fits on the ..."
+print(layout.summary())  # "32 parts, 240 × 149 mm — fits on the ..."
 
 if find_bambu_studio():
     slice_with_bambu_studio(
-        path, "plate.gcode.3mf",
+        path,
+        "plate.gcode.3mf",
         machine="Bambu Lab P1S 0.4 nozzle",
         process="0.20mm Standard @BBL P1P",
     )
@@ -304,9 +305,9 @@ python scripts/preview_set.py pieces   # the six silhouettes side by side
 ```python
 from chess2d import make_piece, make_board, make_initial_position, PieceType
 
-pawn   = make_piece(PieceType.PAWN)          # a Sketch face
-board  = make_board()                         # light/dark square groups + border
-scene  = make_initial_position()              # board + white/black piece layers
+pawn = make_piece(PieceType.PAWN)  # a Sketch face
+board = make_board()  # light/dark square groups + border
+scene = make_initial_position()  # board + white/black piece layers
 ```
 
 Piece generators are pure functions: they take a `scale` and return geometry,
@@ -315,10 +316,10 @@ never touching the filesystem or the viewer.
 ```python
 from chess2d import make_piece_geometry, make_piece_solid
 
-geom  = make_piece_geometry(PieceType.KNIGHT, with_solid=True)
+geom = make_piece_geometry(PieceType.KNIGHT, with_solid=True)
 # geom.fill (Sketch), geom.outline (Shape), geom.optional_solid (Part)
 
-token = make_piece_solid(PieceType.QUEEN, thickness=2.0)   # flat 3D token
+token = make_piece_solid(PieceType.QUEEN, thickness=2.0)  # flat 3D token
 ```
 
 ## Coordinate system & dimensions

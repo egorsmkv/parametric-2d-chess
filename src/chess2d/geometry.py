@@ -44,8 +44,10 @@ def rounded_bar(
     # RectangleRounded requires the radius to be smaller than half the
     # shortest side; clamp it so callers never trigger an invalid fillet.
     radius = max(0.0, min(radius, width / 2 - 0.01, height / 2 - 0.01))
-    rect: Sketch = RectangleRounded(width, height, radius) if radius > 0 else (
-        RectangleRounded(width, height, 0.01)
+    rect: Sketch = (
+        RectangleRounded(width, height, radius)
+        if radius > 0
+        else (RectangleRounded(width, height, 0.01))
     )
     return Pos(0, y_bottom + height / 2) * rect
 
@@ -110,7 +112,7 @@ def fused_two_sided(
     # Keep everything above the cut line.
     band = Pos(0, y_cut + box.size.Y * 2) * Rectangle(box.size.X * 3, box.size.Y * 4)
     top = sketch & band
-    top = Pos(0, -y_cut - overlap) * top   # drop the cut edge just below centre
+    top = Pos(0, -y_cut - overlap) * top  # drop the cut edge just below centre
     bottom = Rot(0, 0, 180) * top
     return centered(top + bottom)
 

@@ -52,8 +52,11 @@ def render_png(svg: Path, png: Path, width: int = IMAGE_WIDTH) -> str:
         (
             "inkscape",
             [
-                "inkscape", str(svg), "--export-type=png",
-                f"--export-width={width}", f"--export-filename={png}",
+                "inkscape",
+                str(svg),
+                "--export-type=png",
+                f"--export-width={width}",
+                f"--export-filename={png}",
             ],
         ),
     )
@@ -95,9 +98,7 @@ def build(version: str, dist: Path, with_images: bool = True) -> list[Path]:
         )
         _check_archive_contents(out_dir, mode)
 
-        archive = shutil.make_archive(
-            str(dist / f"chess2d-{mode.value}-{version}"), "zip", out_dir
-        )
+        archive = shutil.make_archive(str(dist / f"chess2d-{mode.value}-{version}"), "zip", out_dir)
         assets.append(Path(archive))
         print(f"[{mode.value}] archive  -> {Path(archive).name}")
 

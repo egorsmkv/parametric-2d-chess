@@ -53,8 +53,7 @@ class StyleSpec:
     @property
     def generators(self) -> dict[PieceType, Generator]:
         return {
-            piece_type: getattr(self.module, f"make_{piece_type.value}")
-            for piece_type in PieceType
+            piece_type: getattr(self.module, f"make_{piece_type.value}") for piece_type in PieceType
         }
 
 

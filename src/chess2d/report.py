@@ -53,28 +53,67 @@ def _styles() -> Any:
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet  # noqa: PLC0415
 
     sheet = getSampleStyleSheet()
-    sheet.add(ParagraphStyle(
-        "C2Title", parent=sheet["Title"], fontSize=19, spaceAfter=2, alignment=TA_LEFT,
-    ))
-    sheet.add(ParagraphStyle(
-        "C2Sub", parent=sheet["Normal"], fontSize=9, textColor="#666666", spaceAfter=10,
-    ))
-    sheet.add(ParagraphStyle(
-        "C2H", parent=sheet["Heading2"], fontSize=12, spaceBefore=12, spaceAfter=5,
-    ))
-    sheet.add(ParagraphStyle(
-        "C2Body", parent=sheet["Normal"], fontSize=9, leading=13, spaceAfter=5,
-    ))
-    sheet.add(ParagraphStyle(
-        "C2Small", parent=sheet["Normal"], fontSize=8, leading=11, textColor="#555555",
-    ))
-    sheet.add(ParagraphStyle(
-        "C2Formula", parent=sheet["Normal"], fontName="Courier", fontSize=7.5,
-        leading=10,
-    ))
-    sheet.add(ParagraphStyle(
-        "C2Worked", parent=sheet["C2Formula"], textColor="#3d5a1e",
-    ))
+    sheet.add(
+        ParagraphStyle(
+            "C2Title",
+            parent=sheet["Title"],
+            fontSize=19,
+            spaceAfter=2,
+            alignment=TA_LEFT,
+        )
+    )
+    sheet.add(
+        ParagraphStyle(
+            "C2Sub",
+            parent=sheet["Normal"],
+            fontSize=9,
+            textColor="#666666",
+            spaceAfter=10,
+        )
+    )
+    sheet.add(
+        ParagraphStyle(
+            "C2H",
+            parent=sheet["Heading2"],
+            fontSize=12,
+            spaceBefore=12,
+            spaceAfter=5,
+        )
+    )
+    sheet.add(
+        ParagraphStyle(
+            "C2Body",
+            parent=sheet["Normal"],
+            fontSize=9,
+            leading=13,
+            spaceAfter=5,
+        )
+    )
+    sheet.add(
+        ParagraphStyle(
+            "C2Small",
+            parent=sheet["Normal"],
+            fontSize=8,
+            leading=11,
+            textColor="#555555",
+        )
+    )
+    sheet.add(
+        ParagraphStyle(
+            "C2Formula",
+            parent=sheet["Normal"],
+            fontName="Courier",
+            fontSize=7.5,
+            leading=10,
+        )
+    )
+    sheet.add(
+        ParagraphStyle(
+            "C2Worked",
+            parent=sheet["C2Formula"],
+            textColor="#3d5a1e",
+        )
+    )
     return sheet
 
 
@@ -101,19 +140,21 @@ def _table(data: list[list[str]], widths: list[float], header: bool = True) -> A
     return table
 
 
-def _side_by_side(
-    left: Any, right: Any, widths: list[float] | None = None
-) -> Any:
+def _side_by_side(left: Any, right: Any, widths: list[float] | None = None) -> Any:
     """Place two flowables in one row, top-aligned and without borders."""
     from reportlab.platypus import Table, TableStyle  # noqa: PLC0415
 
     holder = Table([[left, right]], colWidths=widths or [200, 205], hAlign="LEFT")
-    holder.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("LEFTPADDING", (0, 0), (0, 0), 0),
-        ("TOPPADDING", (0, 0), (-1, -1), 0),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-    ]))
+    holder.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (0, 0), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ]
+        )
+    )
     return holder
 
 
@@ -133,10 +174,16 @@ class _BoardDiagram:
             for file in range(BOARD_SQUARES):
                 # h1 (lower right from White) is light -- same parity as board.py.
                 fill = dark if (file + rank) % 2 == 0 else light
-                drawing.add(Rect(
-                    file * cell, rank * cell, cell, cell,
-                    fillColor=fill, strokeColor=None,
-                ))
+                drawing.add(
+                    Rect(
+                        file * cell,
+                        rank * cell,
+                        cell,
+                        cell,
+                        fillColor=fill,
+                        strokeColor=None,
+                    )
+                )
         return drawing
 
 
@@ -181,26 +228,30 @@ def _headline(estimate: SetEstimate, sheet: Any) -> list[Any]:
     cells = [
         ["Material volume", "Mass", "Filament" if not resin else "Volume", "Cost"],
         [
-            f"{estimate.pieces_printed_mm3 / 1000:.1f}-"
-            f"{estimate.pieces_solid_mm3 / 1000:.1f} cm3",
+            f"{estimate.pieces_printed_mm3 / 1000:.1f}-{estimate.pieces_solid_mm3 / 1000:.1f} cm3",
             f"{mass_low:.0f}-{mass_high:.0f} g",
-            f"{len_low:.1f}-{len_high:.1f} m" if not resin
+            f"{len_low:.1f}-{len_high:.1f} m"
+            if not resin
             else f"{estimate.pieces_solid_mm3 / 1000:.1f} ml",
             f"{cost_low:.2f}-{cost_high:.2f}",
         ],
     ]
     table = Table(cells, colWidths=[115, 95, 95, 95], hAlign="LEFT")
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f2f4ec")),
-        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#8a9a63")),
-        ("FONTSIZE", (0, 0), (-1, 0), 7.5),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#5f6b45")),
-        ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 1), (-1, 1), 13),
-        ("TOPPADDING", (0, 0), (-1, 0), 6),
-        ("BOTTOMPADDING", (0, 1), (-1, 1), 7),
-        ("LEFTPADDING", (0, 0), (-1, -1), 9),
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f2f4ec")),
+                ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#8a9a63")),
+                ("FONTSIZE", (0, 0), (-1, 0), 7.5),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#5f6b45")),
+                ("FONTNAME", (0, 1), (-1, 1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 1), (-1, 1), 13),
+                ("TOPPADDING", (0, 0), (-1, 0), 6),
+                ("BOTTOMPADDING", (0, 1), (-1, 1), 7),
+                ("LEFTPADDING", (0, 0), (-1, -1), 9),
+            ]
+        )
+    )
     return [
         table,
         Paragraph(
@@ -218,30 +269,38 @@ def _piece_table(estimate: SetEstimate, sheet: Any) -> Any:
     rows = [["Piece", "Qty", "Area", "Each", "Total", "Mass"]]
     for part in estimate.pieces:
         total = part.total_solid_mm3()
-        rows.append([
-            part.name.capitalize(),
-            str(part.count),
-            f"{part.area_mm2:.0f} mm2",
-            f"{part.solid_volume_mm3 / 1000:.2f} cm3",
-            f"{total / 1000:.2f} cm3",
-            f"{mass_g(total, density):.1f} g",
-        ])
-    rows.append([
-        "All pieces",
-        str(estimate.piece_count),
-        "",
-        "",
-        f"{estimate.pieces_solid_mm3 / 1000:.2f} cm3",
-        f"{mass_g(estimate.pieces_solid_mm3, density):.1f} g",
-    ])
+        rows.append(
+            [
+                part.name.capitalize(),
+                str(part.count),
+                f"{part.area_mm2:.0f} mm2",
+                f"{part.solid_volume_mm3 / 1000:.2f} cm3",
+                f"{total / 1000:.2f} cm3",
+                f"{mass_g(total, density):.1f} g",
+            ]
+        )
+    rows.append(
+        [
+            "All pieces",
+            str(estimate.piece_count),
+            "",
+            "",
+            f"{estimate.pieces_solid_mm3 / 1000:.2f} cm3",
+            f"{mass_g(estimate.pieces_solid_mm3, density):.1f} g",
+        ]
+    )
     table = _table(rows, [80, 35, 70, 75, 75, 60])
     from reportlab.lib import colors  # noqa: PLC0415
     from reportlab.platypus import TableStyle  # noqa: PLC0415
 
-    table.setStyle(TableStyle([
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-        ("LINEABOVE", (0, -1), (-1, -1), 0.6, colors.HexColor("#8a9a63")),
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                ("LINEABOVE", (0, -1), (-1, -1), 0.6, colors.HexColor("#8a9a63")),
+            ]
+        )
+    )
     return table
 
 
@@ -257,13 +316,15 @@ def _material_table(estimate: SetEstimate) -> Any:
     rows = [["Material", "Density", "Mass", "Cost at your price", "Notes"]]
     for material in MATERIALS.values():
         grams = mass_g(volume, material.density_g_cm3)
-        rows.append([
-            material.name,
-            f"{material.density_g_cm3:g} g/cm3",
-            f"{grams:.0f} g",
-            f"{cost(grams, settings.price_per_kg):.2f}",
-            material.note,
-        ])
+        rows.append(
+            [
+                material.name,
+                f"{material.density_g_cm3:g} g/cm3",
+                f"{grams:.0f} g",
+                f"{cost(grams, settings.price_per_kg):.2f}",
+                material.note,
+            ]
+        )
     table = _table(rows, [70, 62, 45, 85, 200])
     from reportlab.platypus import TableStyle  # noqa: PLC0415
 
@@ -283,9 +344,7 @@ def _formula_block(estimate: SetEstimate, sheet: Any) -> list[Any]:
     settings = estimate.settings
     sample = estimate.pieces[0]
     walls = wall_fraction(sample.area_mm2, sample.perimeter_mm, settings)
-    fraction = printed_fraction(
-        sample.area_mm2, sample.perimeter_mm, sample.thickness_mm, settings
-    )
+    fraction = printed_fraction(sample.area_mm2, sample.perimeter_mm, sample.thickness_mm, settings)
     layers = max(1, round(sample.thickness_mm / settings.layer_height_mm))
     density = settings.density_g_cm3
     volume = estimate.pieces_solid_mm3
@@ -320,8 +379,7 @@ def _formula_block(estimate: SetEstimate, sheet: Any) -> list[Any]:
         (
             "Filament length",
             "L = V / (pi * (d / 2)^2)",
-            f"{volume:.0f} / (pi * ({settings.filament_diameter_mm:g}/2)^2) "
-            f"= {length_m:.1f} m",
+            f"{volume:.0f} / (pi * ({settings.filament_diameter_mm:g}/2)^2) = {length_m:.1f} m",
         ),
         (
             "Cost",
@@ -350,10 +408,14 @@ def _formula_block(estimate: SetEstimate, sheet: Any) -> list[Any]:
     table = _table(rows, [92, 178, 168])
     from reportlab.platypus import TableStyle  # noqa: PLC0415
 
-    table.setStyle(TableStyle([
-        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-        ("TOPPADDING", (0, 1), (-1, -1), 5),
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("TOPPADDING", (0, 1), (-1, -1), 5),
+            ]
+        )
+    )
     return [table]
 
 
@@ -390,9 +452,7 @@ def _practical_notes(estimate: SetEstimate, sheet: Any) -> list[Any]:
 
     smallest = min(estimate.pieces, key=lambda part: part.area_mm2)
     per_bed = pieces_per_bed(max(part.area_mm2 for part in estimate.pieces))
-    layers = max(
-        1, round(estimate.style.piece_thickness / estimate.settings.layer_height_mm)
-    )
+    layers = max(1, round(estimate.style.piece_thickness / estimate.settings.layer_height_mm))
     notes = [
         "These are flat parts: print them lying on the bed. No supports are needed and "
         "the silhouette is a single connected piece, so nothing comes loose.",
@@ -443,8 +503,10 @@ def write_material_report(
         pagesize=A4,
         title="3D printing material estimate - 2D chess set",
         author="chess2d",
-        leftMargin=18 * MM, rightMargin=18 * MM,
-        topMargin=15 * MM, bottomMargin=15 * MM,
+        leftMargin=18 * MM,
+        rightMargin=18 * MM,
+        topMargin=15 * MM,
+        bottomMargin=15 * MM,
     )
 
     story: list[Flowable] = [

@@ -58,9 +58,7 @@ _MODES: dict[str, FigureMode] = {
     "Single-sided": FigureMode.SINGLE,
 }
 #: Piece styles, labelled from the registry.
-_STYLE_CHOICES: dict[str, PieceStyle] = {
-    spec.label: style for style, spec in STYLES.items()
-}
+_STYLE_CHOICES: dict[str, PieceStyle] = {spec.label: style for style, spec in STYLES.items()}
 
 # Size presets. Labels stay terse -- the exact millimetres land in the preview's
 # spec strip, where there is room for them.
@@ -113,8 +111,14 @@ def _fresh_dir(name: str) -> Path:
     return path
 
 
-def _style(mode_label: str, style_label: str, board_label: str, figure_label: str,
-           piece_thickness: float, board_thickness: float) -> ChessStyle:
+def _style(
+    mode_label: str,
+    style_label: str,
+    board_label: str,
+    figure_label: str,
+    piece_thickness: float,
+    board_thickness: float,
+) -> ChessStyle:
     _, square_size = _BOARD_CHOICES[board_label]
     _, piece_scale = _FIGURE_CHOICES[figure_label]
     return ChessStyle(
@@ -185,15 +189,18 @@ _CSS = """
                    var(--c2-card) 0% 25%, transparent 0% 50%) 0 0 / 25% 25%; }
 """
 
-_PLACEHOLDER = (
-    '<div class="c2"><div class="c2-skeleton">Building the board…</div></div>'
-)
+_PLACEHOLDER = '<div class="c2"><div class="c2-skeleton">Building the board…</div></div>'
 
 _FILES = "abcdefgh"
 
 
-def _print_settings(material: str, filament_diameter: float, price_per_kg: float,
-                    layer_height: float, infill_percent: float) -> PrintSettings:
+def _print_settings(
+    material: str,
+    filament_diameter: float,
+    price_per_kg: float,
+    layer_height: float,
+    infill_percent: float,
+) -> PrintSettings:
     """Bundle the printing controls (the estimate's counterpart to :func:`_style`)."""
     return PrintSettings(
         material=material,
@@ -236,13 +243,22 @@ def _css_rgb(color: tuple[float, float, float]) -> str:
     return f"rgb({red},{green},{blue})"
 
 
-def build_preview(mode_label: str, style_label: str, board_label: str,
-                  figure_label: str, piece_thickness: float,
-                  board_thickness: float) -> str:
+def build_preview(
+    mode_label: str,
+    style_label: str,
+    board_label: str,
+    figure_label: str,
+    piece_thickness: float,
+    board_thickness: float,
+) -> str:
     """Render the board and the six piece silhouettes as inline SVG for preview."""
     style = _style(
-        mode_label, style_label, board_label, figure_label,
-        piece_thickness, board_thickness,
+        mode_label,
+        style_label,
+        board_label,
+        figure_label,
+        piece_thickness,
+        board_thickness,
     )
     tmp = _fresh_dir("preview")
 
@@ -253,11 +269,14 @@ def build_preview(mode_label: str, style_label: str, board_label: str,
     tallest = 0.0
     for piece_type in PieceType:
         piece_svg = export_piece_svg(
-            piece_type, tmp / f"{piece_type.value}.svg", style.piece_scale,
+            piece_type,
+            tmp / f"{piece_type.value}.svg",
+            style.piece_scale,
             # Dark fill on the cream backdrop below: the white set's cream fill
             # would be nearly invisible on a light card.
             fill=BLACK_FILL_COLOR,
-            mode=style.figure_mode, square_size=style.square_size,
+            mode=style.figure_mode,
+            square_size=style.square_size,
         )
         width, height = _svg_dims(piece_svg)
         tallest = max(tallest, height)
@@ -276,14 +295,16 @@ def build_preview(mode_label: str, style_label: str, board_label: str,
 
     spec = STYLES[style.piece_style]
     playing = style.square_size * 8
-    specs = "".join((
-        _chip("Style", spec.label),
-        _chip("Board", f"{playing:.0f} × {playing:.0f} mm"),
-        _chip("Square", f"{style.square_size:.0f} mm"),
-        _chip("Figures", f"{style.piece_scale * FIGURE_FILL_FRACTION:.0%} of square"),
-        _chip("Tallest", f"{tallest:.0f} mm"),
-        _chip("Thickness", f"{style.piece_thickness:g} mm"),
-    ))
+    specs = "".join(
+        (
+            _chip("Style", spec.label),
+            _chip("Board", f"{playing:.0f} × {playing:.0f} mm"),
+            _chip("Square", f"{style.square_size:.0f} mm"),
+            _chip("Figures", f"{style.piece_scale * FIGURE_FILL_FRACTION:.0%} of square"),
+            _chip("Tallest", f"{tallest:.0f} mm"),
+            _chip("Thickness", f"{style.piece_thickness:g} mm"),
+        )
+    )
 
     return (
         f'<div class="c2" style="--c2-square:{_css_rgb(LIGHT_SQUARE_COLOR)}">'
@@ -311,17 +332,30 @@ def _config_stem(style: ChessStyle, board_label: str, figure_label: str) -> str:
     )
 
 
-def build_report(mode_label: str, style_label: str, board_label: str,
-                 figure_label: str, piece_thickness: float, board_thickness: float,
-                 material: str, filament_diameter: float, price_per_kg: float,
-                 layer_height: float, infill_percent: float) -> str:
+def build_report(
+    mode_label: str,
+    style_label: str,
+    board_label: str,
+    figure_label: str,
+    piece_thickness: float,
+    board_thickness: float,
+    material: str,
+    filament_diameter: float,
+    price_per_kg: float,
+    layer_height: float,
+    infill_percent: float,
+) -> str:
     """Write just the 3D-printing material report and return its path.
 
     Needs no STEP/STL, so this returns in about a second.
     """
     style = _style(
-        mode_label, style_label, board_label, figure_label,
-        piece_thickness, board_thickness,
+        mode_label,
+        style_label,
+        board_label,
+        figure_label,
+        piece_thickness,
+        board_thickness,
     )
     settings = _print_settings(
         material, filament_diameter, price_per_kg, layer_height, infill_percent
@@ -368,11 +402,21 @@ def _profile_hints(printer_name: str) -> tuple[Any, Any]:
     )
 
 
-def build_bambu(mode_label: str, style_label: str, board_label: str, figure_label: str,
-                piece_thickness: float, board_thickness: float,
-                printer_name: str, contents_label: str, tolerance: float,
-                do_slice: bool, machine: str, process: str,
-                filament: str) -> tuple[str, str]:
+def build_bambu(
+    mode_label: str,
+    style_label: str,
+    board_label: str,
+    figure_label: str,
+    piece_thickness: float,
+    board_thickness: float,
+    printer_name: str,
+    contents_label: str,
+    tolerance: float,
+    do_slice: bool,
+    machine: str,
+    process: str,
+    filament: str,
+) -> tuple[str, str]:
     """Lay the pieces out on a Bambu build plate and write the 3MF.
 
     Returns the file to download and a status line. With ``do_slice`` the plate
@@ -381,8 +425,12 @@ def build_bambu(mode_label: str, style_label: str, board_label: str, figure_labe
     status says so rather than silently passing off an unsliced file.
     """
     style = _style(
-        mode_label, style_label, board_label, figure_label,
-        piece_thickness, board_thickness,
+        mode_label,
+        style_label,
+        board_label,
+        figure_label,
+        piece_thickness,
+        board_thickness,
     )
     printer = PRINTERS[printer_name]
     contents = PLATE_CONTENTS[contents_label]
@@ -454,21 +502,36 @@ def build_bambu(mode_label: str, style_label: str, board_label: str, figure_labe
     return str(path), "\n\n".join(lines)
 
 
-def build_files(mode_label: str, style_label: str, board_label: str,
-                figure_label: str, piece_thickness: float, board_thickness: float,
-                with_solids: bool,
-                material: str, filament_diameter: float, price_per_kg: float,
-                layer_height: float, infill_percent: float) -> str:
+def build_files(
+    mode_label: str,
+    style_label: str,
+    board_label: str,
+    figure_label: str,
+    piece_thickness: float,
+    board_thickness: float,
+    with_solids: bool,
+    material: str,
+    filament_diameter: float,
+    price_per_kg: float,
+    layer_height: float,
+    infill_percent: float,
+) -> str:
     """Generate the full deliverable set and return a downloadable ZIP path."""
     style = _style(
-        mode_label, style_label, board_label, figure_label,
-        piece_thickness, board_thickness,
+        mode_label,
+        style_label,
+        board_label,
+        figure_label,
+        piece_thickness,
+        board_thickness,
     )
     out_dir = _fresh_dir("build")
     # 3MF is a solid format, so it follows the same switch as STEP/STL.
     generate_all(
-        output_dir=out_dir, style=style,
-        with_solids=bool(with_solids), with_3mf=bool(with_solids),
+        output_dir=out_dir,
+        style=style,
+        with_solids=bool(with_solids),
+        with_3mf=bool(with_solids),
     )
 
     # The printing estimate travels with the models it describes.
@@ -522,15 +585,24 @@ def build_demo() -> gr.Blocks:
                     )
                 with gr.Accordion("Material & output", open=False):
                     piece_thickness = gr.Slider(
-                        1, 6, value=2, step=0.5, label="Piece thickness (mm)",
+                        1,
+                        6,
+                        value=2,
+                        step=0.5,
+                        label="Piece thickness (mm)",
                         info="Extrusion depth for STEP and STL.",
                     )
                     board_thickness = gr.Slider(
-                        1, 8, value=3, step=0.5, label="Board thickness (mm)",
+                        1,
+                        8,
+                        value=3,
+                        step=0.5,
+                        label="Board thickness (mm)",
                         info="Used for the board STEP solid.",
                     )
                     with_solids = gr.Checkbox(
-                        value=True, label="Include 3D solids (STEP + STL)",
+                        value=True,
+                        label="Include 3D solids (STEP + STL)",
                         info="Slower — untick for a quick vector-only export.",
                     )
                 with gr.Accordion("3D printing estimate", open=False):
@@ -549,14 +621,20 @@ def build_demo() -> gr.Blocks:
                         label="Filament diameter (mm)",
                     )
                     price_per_kg = gr.Number(
-                        value=25.0, minimum=0, label="Price per kg",
+                        value=25.0,
+                        minimum=0,
+                        label="Price per kg",
                         info="In your own currency; the report just multiplies.",
                     )
                     layer_height = gr.Slider(
                         0.08, 0.32, value=0.2, step=0.02, label="Layer height (mm)"
                     )
                     infill = gr.Slider(
-                        0, 100, value=15, step=5, label="Infill (%)",
+                        0,
+                        100,
+                        value=15,
+                        step=5,
+                        label="Infill (%)",
                         info="Barely matters for thin pieces — the report explains why.",
                     )
                     report_btn: Any = gr.Button("Material report (PDF)")
@@ -583,16 +661,18 @@ def build_demo() -> gr.Blocks:
                         info="Both players share one shape per piece, in two colours.",
                     )
                     tolerance = gr.Slider(
-                        0.005, 0.1, value=DEFAULT_TOLERANCE, step=0.005,
+                        0.005,
+                        0.1,
+                        value=DEFAULT_TOLERANCE,
+                        step=0.005,
                         label="Mesh tolerance (mm)",
                         info="How closely the mesh follows the curved edges. Lower is "
-                             "finer; 0.02 is ample for FDM.",
+                        "finer; 0.02 is ample for FDM.",
                     )
                     do_slice = gr.Checkbox(
                         value=False,
                         label="Slice with Bambu Studio (printer-ready .gcode.3mf)",
-                        info="Needs Bambu Studio installed on the machine running "
-                             "this app.",
+                        info="Needs Bambu Studio installed on the machine running this app.",
                     )
                     # The nozzle variants of the selected printer, refreshed when
                     # that changes (see _profile_hints). Custom values stay
@@ -603,7 +683,7 @@ def build_demo() -> gr.Blocks:
                         allow_custom_value=True,
                         label="Machine profile",
                         info="Nozzle variants of the printer above. Or type the name "
-                             "of any other system preset, or a path to a .json.",
+                        "of any other system preset, or a path to a .json.",
                     )
                     process_profile = gr.Textbox(
                         label="Process profile",
@@ -611,16 +691,15 @@ def build_demo() -> gr.Blocks:
                         info="Layer height and quality preset.",
                     )
                     filament_profile = gr.Textbox(
-                        label="Filament profile", placeholder="Bambu PLA Basic @BBL P1P",
+                        label="Filament profile",
+                        placeholder="Bambu PLA Basic @BBL P1P",
                         info="Optional; blank leaves Bambu Studio's current filament.",
                     )
                     bambu_btn: Any = gr.Button("Bambu plate (3MF)")
                     bambu_file = gr.File(label="Your plate (3MF)", height=100)
                     bambu_status = gr.Markdown(_bambu_status())
 
-                generate_btn: Any = gr.Button(
-                    "Generate files (ZIP)", variant="primary", size="lg"
-                )
+                generate_btn: Any = gr.Button("Generate files (ZIP)", variant="primary", size="lg")
                 download = gr.File(label="Your download", height=120)
                 gr.Markdown(
                     "<small>The archive holds `svg/`, `dxf/`, the printing estimate "
@@ -634,8 +713,12 @@ def build_demo() -> gr.Blocks:
         # it resolves varies between environments. Annotating the receivers as
         # Any keeps the type check stable everywhere.
         inputs: list[Any] = [
-            mode, piece_style, board_size, figure_size,
-            piece_thickness, board_thickness,
+            mode,
+            piece_style,
+            board_size,
+            figure_size,
+            piece_thickness,
+            board_thickness,
         ]
         demo.load(build_preview, inputs=inputs, outputs=preview)
         for control in inputs:
@@ -643,17 +726,20 @@ def build_demo() -> gr.Blocks:
 
         # Printing controls stay out of `inputs`: they do not affect the drawing,
         # and wiring them to .change would re-render the board for nothing.
-        print_inputs: list[Any] = [
-            material, filament_diameter, price_per_kg, layer_height, infill
-        ]
+        print_inputs: list[Any] = [material, filament_diameter, price_per_kg, layer_height, infill]
         report_btn.click(
             build_report,
             inputs=[*inputs, *print_inputs],
             outputs=report_file,
         )
         bambu_inputs: list[Any] = [
-            printer, plate_contents, tolerance, do_slice,
-            machine_profile, process_profile, filament_profile,
+            printer,
+            plate_contents,
+            tolerance,
+            do_slice,
+            machine_profile,
+            process_profile,
+            filament_profile,
         ]
         bambu_btn.click(
             build_bambu,
