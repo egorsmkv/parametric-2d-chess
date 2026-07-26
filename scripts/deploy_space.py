@@ -34,9 +34,10 @@ MANAGED_PATTERNS = [
     "*.py",
     "Dockerfile",
     "chess2d/*",
-    # One level deeper: the style modules live in a subpackage, and a stale
-    # copy left behind there would shadow the new code.
+    # One level deeper: the style modules and the Bambu output both live in
+    # subpackages, and a stale copy left behind there would shadow the new code.
     "chess2d/styles/*",
+    "chess2d/bambu/*",
     "requirements.txt",
     "README.md",
 ]

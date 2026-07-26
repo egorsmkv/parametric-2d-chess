@@ -196,8 +196,12 @@ def test_slicing_without_bambu_studio_still_returns_the_plain_plate(
 ) -> None:
     # The Space (and most machines) have no Bambu Studio: the download must
     # still arrive, with the status saying plainly that it was not sliced.
+    # Both ends have to be blinded: the app reads its own imported name for the
+    # status line, while the slicer reads the one in its defining module.
+    # Patching the chess2d.bambu re-export instead would rebind a name nobody
+    # looks at, and this test would pass without ever exercising the fallback.
     monkeypatch.setattr(gradio_app, "find_bambu_studio", lambda _=None: None)
-    monkeypatch.setattr("chess2d.bambu.find_bambu_studio", lambda _=None: None)
+    monkeypatch.setattr("chess2d.bambu.slicing.find_bambu_studio", lambda _=None: None)
     path_text, status = gradio_app.build_bambu(
         MODE_LABELS[0],
         DEFAULT_STYLE,

@@ -49,7 +49,6 @@ def test_payload_bundles_the_package(payload: Path) -> None:
     # Everything the app imports must ship with it.
     for module in (
         "assembly",
-        "bambu",
         "board",
         "estimate",
         "export",
@@ -75,6 +74,13 @@ def test_payload_bundles_the_package(payload: Path) -> None:
         "lewis",
     ):
         assert (styles / f"{style}.py").is_file(), f"chess2d/styles/{style}.py missing"
+
+    # So does the Bambu output, split into plate geometry and the parts that
+    # talk to a Bambu Studio installation.
+    bambu_package = package / "bambu"
+    assert (bambu_package / "__init__.py").is_file(), "chess2d/bambu/ missing from payload"
+    for module in ("printers", "plate", "profiles", "slicing"):
+        assert (bambu_package / f"{module}.py").is_file(), f"chess2d/bambu/{module}.py missing"
 
 
 def test_space_readme_declares_the_docker_sdk(payload: Path) -> None:
