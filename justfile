@@ -1,2 +1,4 @@
 check:
-    uv run ruff check --select ALL
+    uv run ruff check
+    uv run mypy
+    uv run pytest
