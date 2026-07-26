@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -20,7 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "deploy_space.py"
 
 
-def _load_module():  # type: ignore[no-untyped-def]
+def _load_module() -> ModuleType:
     spec = importlib.util.spec_from_file_location("deploy_space", SCRIPT)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -119,6 +120,7 @@ def test_payload_imports_without_the_source_tree(payload: Path) -> None:
         cwd=payload,
         capture_output=True,
         text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr[-2000:]
     assert str(payload) in result.stdout
@@ -141,6 +143,7 @@ def test_dry_run_does_not_need_credentials(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
         env=env,
+        check=False,
     )
     assert result.returncode == 0, result.stderr[-2000:]
     assert "Dry run" in result.stdout
@@ -160,6 +163,7 @@ def test_deploy_without_a_token_fails_clearly(tmp_path: Path) -> None:
         capture_output=True,
         text=True,
         env=env,
+        check=False,
     )
     assert result.returncode != 0
     assert "no token" in result.stderr.lower()

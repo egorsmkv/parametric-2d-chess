@@ -23,8 +23,8 @@ from pathlib import Path
 # Allow running directly from a source checkout without installation.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from chess2d.export import generate_all  # noqa: E402
-from chess2d.parameters import ChessStyle, FigureMode  # noqa: E402
+from chess2d.export import generate_all
+from chess2d.parameters import ChessStyle, FigureMode
 
 IMAGE_WIDTH = 1400
 
@@ -42,7 +42,7 @@ def render_png(svg: Path, png: Path, width: int = IMAGE_WIDTH) -> str:
 
         cairosvg.svg2png(url=str(svg), write_to=str(png), output_width=width)
         return "cairosvg"
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001, S110
         # Not just ImportError: cairosvg imports fine but raises OSError when the
         # system libcairo is missing, so fall through to the CLI rasterisers.
         pass
@@ -67,7 +67,7 @@ def render_png(svg: Path, png: Path, width: int = IMAGE_WIDTH) -> str:
 
     raise RuntimeError(
         "No SVG rasteriser found. Install one of: cairosvg (pip install cairosvg), "
-        "librsvg2-bin (rsvg-convert), or inkscape -- or pass --no-images."
+        "librsvg2-bin (rsvg-convert), or inkscape -- or pass --no-images.",
     )
 
 
@@ -118,7 +118,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--version", default="dev", help="version/tag label for filenames")
     parser.add_argument("--dist", default="dist", type=Path, help="output directory")
     parser.add_argument(
-        "--no-images", action="store_true", help="skip rasterising the board previews"
+        "--no-images", action="store_true", help="skip rasterising the board previews",
     )
     args = parser.parse_args(argv)
 

@@ -28,7 +28,7 @@ def place_piece(
     sketch: Sketch,
     file_index: int,
     rank_index: int,
-    side: Side,
+    side: Side,  # noqa: ARG001 - kept for API symmetry, see docstring
     square_size: float = DEFAULT_STYLE.square_size,
 ) -> Sketch:
     """Position a piece sketch onto a board square.

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from build123d import Part, Plane, Shape, Sketch, extrude, mirror
+from build123d import Part, Plane, Shape, ShapeList, Sketch, Wire, extrude, mirror
 
 from .geometry import centered, fused_two_sided, outline_ring, outline_wires, scaled, two_sided
 from .parameters import (
@@ -115,7 +115,9 @@ class PieceGeometry:
     """The three forms of a single piece (spec section 7.3)."""
 
     fill: Sketch
-    outline: Shape
+    #: Either a closed offset ring, or the raw boundary wires when the
+    #: inward offset is not robust for this silhouette.
+    outline: Shape | ShapeList[Wire]
     optional_solid: Part | None
 
 
@@ -140,7 +142,7 @@ def make_piece_geometry(
         style=style,
     )
     ring = outline_ring(fill, outline_width)
-    outline: Shape = ring if ring is not None else outline_wires(fill)
+    outline: Shape | ShapeList[Wire] = ring if ring is not None else outline_wires(fill)
     solid = extrude(fill, amount=thickness) if with_solid else None
     return PieceGeometry(fill=fill, outline=outline, optional_solid=solid)
 

@@ -42,7 +42,7 @@ def test_preview_honours_board_size_presets(board_label: str) -> None:
 
 def test_preview_includes_board_coordinates() -> None:
     html = gradio_app.build_preview(
-        MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3
+        MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3,
     )
     for file in "abcdefgh":
         assert f"<span>{file}</span>" in html
@@ -52,7 +52,7 @@ def test_preview_includes_board_coordinates() -> None:
 
 def test_preview_reports_piece_dimensions() -> None:
     html = gradio_app.build_preview(
-        MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3
+        MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3,
     )
     # One "<width> × <height> mm" caption per piece, plus the board chip.
     assert html.count("mm</small>") == 6
@@ -68,8 +68,8 @@ def test_build_files_produces_downloadable_zip() -> None:
     # Vector formats only keeps the test fast; solids are covered elsewhere.
     archive = Path(
         gradio_app.build_files(
-            MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, False, *PRINT_ARGS
-        )
+            MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, False, *PRINT_ARGS,
+        ),
     )
     assert archive.exists() and archive.suffix == ".zip"
     # The filename records the chosen configuration.
@@ -82,8 +82,8 @@ def test_build_files_produces_downloadable_zip() -> None:
 def test_zip_carries_the_printing_report() -> None:
     archive = Path(
         gradio_app.build_files(
-            MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, False, *PRINT_ARGS
-        )
+            MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, False, *PRINT_ARGS,
+        ),
     )
     with zipfile.ZipFile(archive) as bundle:
         assert gradio_app.REPORT_FILENAME in bundle.namelist()
@@ -93,8 +93,8 @@ def test_zip_carries_the_printing_report() -> None:
 def test_report_button_returns_a_pdf() -> None:
     path = Path(
         gradio_app.build_report(
-            MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, *PRINT_ARGS
-        )
+            MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, *PRINT_ARGS,
+        ),
     )
     assert path.suffix == ".pdf"
     data = path.read_bytes()
@@ -149,7 +149,7 @@ def test_the_automatic_entry_reads_as_unset() -> None:
     assert gradio_app._chosen(gradio_app.AUTO_PROFILE) == ""
     # A typed preset name or path still comes through, trimmed.
     assert gradio_app._chosen("  Bambu Lab P1S 0.6 nozzle ") == "Bambu Lab P1S 0.6 nozzle"
-    assert gradio_app._chosen("/tmp/mine.json") == "/tmp/mine.json"
+    assert gradio_app._chosen("/tmp/mine.json") == "/tmp/mine.json"  # noqa: S108
 
 
 def test_changing_the_printer_repoints_the_machine_menu() -> None:
@@ -162,7 +162,7 @@ def test_changing_the_printer_repoints_the_machine_menu() -> None:
 
 def test_bambu_button_returns_a_3mf_and_a_verdict() -> None:
     path_text, status = gradio_app.build_bambu(
-        MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, *BAMBU_ARGS
+        MODE_LABELS[0], DEFAULT_STYLE, MEDIUM_BOARD, MEDIUM_FIGURE, 2, 3, *BAMBU_ARGS,
     )
     path = Path(path_text)
     assert path.suffix == ".3mf" and zipfile.is_zipfile(path)

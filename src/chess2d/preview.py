@@ -65,7 +65,7 @@ def _show(*args: object, **kwargs: object) -> None:
     except ImportError as exc:  # pragma: no cover - viewer is optional
         raise RuntimeError(
             "ocp_vscode is not installed; install it with "
-            "'uv sync --extra preview' to use the preview helpers."
+            "'uv sync --extra preview' to use the preview helpers.",
         ) from exc
 
     port = _resolve_port()

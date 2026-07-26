@@ -94,7 +94,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--token", default=os.environ.get("HF_TOKEN", ""))
     parser.add_argument("--staging", type=Path, default=ROOT / "build" / "space")
     parser.add_argument(
-        "--dry-run", action="store_true", help="assemble only; do not contact the Hub"
+        "--dry-run", action="store_true", help="assemble only; do not contact the Hub",
     )
     args = parser.parse_args(argv)
 

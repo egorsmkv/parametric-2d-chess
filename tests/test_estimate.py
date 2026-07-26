@@ -53,7 +53,7 @@ def test_knight_is_not_over_counted_by_face_area() -> None:
     naive_area = make_piece(PieceType.KNIGHT).area
     assert knight.area_mm2 < naive_area
     assert knight.solid_volume_mm3 == pytest.approx(
-        make_piece_solid(PieceType.KNIGHT, thickness=thickness).volume, rel=1e-9
+        make_piece_solid(PieceType.KNIGHT, thickness=thickness).volume, rel=1e-9,
     )
 
 

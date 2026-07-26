@@ -55,7 +55,7 @@ def coronet(
     up_pts.append((right_x, valley_y))
     with BuildSketch() as sk:
         with BuildLine():
-            poly_pts = up_pts + [(right_x, valley_y - 3.5), (left_x, valley_y - 3.5)]
+            poly_pts = [*up_pts, (right_x, valley_y - 3.5), (left_x, valley_y - 3.5)]
             for a, b in zip(poly_pts, poly_pts[1:] + poly_pts[:1], strict=True):
                 Line(a, b)
         make_face()

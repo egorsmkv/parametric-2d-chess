@@ -9,7 +9,7 @@ The arithmetic lives in :mod:`chess2d.estimate`; this module only lays it out.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -48,6 +48,11 @@ _MODE_NAMES = {
 }
 
 
+def _today() -> date:
+    """Today in the local timezone, resolved via UTC so it is never naive."""
+    return datetime.now(timezone.utc).astimezone().date()
+
+
 def _styles() -> Any:
     from reportlab.lib.enums import TA_LEFT  # noqa: PLC0415
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet  # noqa: PLC0415
@@ -60,7 +65,7 @@ def _styles() -> Any:
             fontSize=19,
             spaceAfter=2,
             alignment=TA_LEFT,
-        )
+        ),
     )
     sheet.add(
         ParagraphStyle(
@@ -69,7 +74,7 @@ def _styles() -> Any:
             fontSize=9,
             textColor="#666666",
             spaceAfter=10,
-        )
+        ),
     )
     sheet.add(
         ParagraphStyle(
@@ -78,7 +83,7 @@ def _styles() -> Any:
             fontSize=12,
             spaceBefore=12,
             spaceAfter=5,
-        )
+        ),
     )
     sheet.add(
         ParagraphStyle(
@@ -87,7 +92,7 @@ def _styles() -> Any:
             fontSize=9,
             leading=13,
             spaceAfter=5,
-        )
+        ),
     )
     sheet.add(
         ParagraphStyle(
@@ -96,7 +101,7 @@ def _styles() -> Any:
             fontSize=8,
             leading=11,
             textColor="#555555",
-        )
+        ),
     )
     sheet.add(
         ParagraphStyle(
@@ -105,14 +110,14 @@ def _styles() -> Any:
             fontName="Courier",
             fontSize=7.5,
             leading=10,
-        )
+        ),
     )
     sheet.add(
         ParagraphStyle(
             "C2Worked",
             parent=sheet["C2Formula"],
             textColor="#3d5a1e",
-        )
+        ),
     )
     return sheet
 
@@ -152,8 +157,8 @@ def _side_by_side(left: Any, right: Any, widths: list[float] | None = None) -> A
                 ("LEFTPADDING", (0, 0), (0, 0), 0),
                 ("TOPPADDING", (0, 0), (-1, -1), 0),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
-            ]
-        )
+            ],
+        ),
     )
     return holder
 
@@ -182,7 +187,7 @@ class _BoardDiagram:
                         cell,
                         fillColor=fill,
                         strokeColor=None,
-                    )
+                    ),
                 )
         return drawing
 
@@ -249,8 +254,8 @@ def _headline(estimate: SetEstimate, sheet: Any) -> list[Any]:
                 ("TOPPADDING", (0, 0), (-1, 0), 6),
                 ("BOTTOMPADDING", (0, 1), (-1, 1), 7),
                 ("LEFTPADDING", (0, 0), (-1, -1), 9),
-            ]
-        )
+            ],
+        ),
     )
     return [
         table,
@@ -263,7 +268,7 @@ def _headline(estimate: SetEstimate, sheet: Any) -> list[Any]:
     ]
 
 
-def _piece_table(estimate: SetEstimate, sheet: Any) -> Any:
+def _piece_table(estimate: SetEstimate) -> Any:
     settings = estimate.settings
     density = settings.density_g_cm3
     rows = [["Piece", "Qty", "Area", "Each", "Total", "Mass"]]
@@ -277,7 +282,7 @@ def _piece_table(estimate: SetEstimate, sheet: Any) -> Any:
                 f"{part.solid_volume_mm3 / 1000:.2f} cm3",
                 f"{total / 1000:.2f} cm3",
                 f"{mass_g(total, density):.1f} g",
-            ]
+            ],
         )
     rows.append(
         [
@@ -287,7 +292,7 @@ def _piece_table(estimate: SetEstimate, sheet: Any) -> Any:
             "",
             f"{estimate.pieces_solid_mm3 / 1000:.2f} cm3",
             f"{mass_g(estimate.pieces_solid_mm3, density):.1f} g",
-        ]
+        ],
     )
     table = _table(rows, [80, 35, 70, 75, 75, 60])
     from reportlab.lib import colors  # noqa: PLC0415
@@ -298,8 +303,8 @@ def _piece_table(estimate: SetEstimate, sheet: Any) -> Any:
             [
                 ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
                 ("LINEABOVE", (0, -1), (-1, -1), 0.6, colors.HexColor("#8a9a63")),
-            ]
-        )
+            ],
+        ),
     )
     return table
 
@@ -323,7 +328,7 @@ def _material_table(estimate: SetEstimate) -> Any:
                 f"{grams:.0f} g",
                 f"{cost(grams, settings.price_per_kg):.2f}",
                 material.note,
-            ]
+            ],
         )
     table = _table(rows, [70, 62, 45, 85, 200])
     from reportlab.platypus import TableStyle  # noqa: PLC0415
@@ -356,20 +361,26 @@ def _formula_block(estimate: SetEstimate, sheet: Any) -> list[Any]:
         (
             "Solid volume of a part",
             "V = A * t",
-            f"{sample.name}: {sample.area_mm2:.0f} mm2 * {sample.thickness_mm:g} mm "
-            f"= {sample.solid_volume_mm3:.0f} mm3",
+            (
+                f"{sample.name}: {sample.area_mm2:.0f} mm2 * {sample.thickness_mm:g} mm "
+                f"= {sample.solid_volume_mm3:.0f} mm3"
+            ),
         ),
         (
             "Wall share of a layer",
             "w = min(1, P * walls * line_width / A)",
-            f"{sample.perimeter_mm:.0f} * {settings.wall_count} * "
-            f"{settings.line_width_mm:g} / {sample.area_mm2:.0f} = {walls:.2f}",
+            (
+                f"{sample.perimeter_mm:.0f} * {settings.wall_count} * "
+                f"{settings.line_width_mm:g} / {sample.area_mm2:.0f} = {walls:.2f}"
+            ),
         ),
         (
             "Sparse-infill correction",
             "f = [n_solid + (n - n_solid) * (w + (1 - w) * infill)] / n",
-            f"n = ceil(t / h) = {layers}, n_solid = {min(SOLID_LAYERS, layers)}, "
-            f"so f = {fraction:.2f}",
+            (
+                f"n = ceil(t / h) = {layers}, n_solid = {min(SOLID_LAYERS, layers)}, "
+                f"so f = {fraction:.2f}"
+            ),
         ),
         (
             "Mass",
@@ -384,15 +395,19 @@ def _formula_block(estimate: SetEstimate, sheet: Any) -> list[Any]:
         (
             "Cost",
             "C = m / 1000 * price_per_kg",
-            f"{grams:.0f} / 1000 * {settings.price_per_kg:g} = "
-            f"{cost(grams, settings.price_per_kg):.2f}",
+            (
+                f"{grams:.0f} / 1000 * {settings.price_per_kg:g} = "
+                f"{cost(grams, settings.price_per_kg):.2f}"
+            ),
         ),
         (
             "Parts per bed",
             "N = floor(bed_area * packing / A)",
-            f"{DEFAULT_BED_MM[0]:g} * {DEFAULT_BED_MM[1]:g} * "
-            f"{BED_PACKING_EFFICIENCY:g} / {sample.area_mm2:.0f} "
-            f"= {pieces_per_bed(sample.area_mm2)}",
+            (
+                f"{DEFAULT_BED_MM[0]:g} * {DEFAULT_BED_MM[1]:g} * "
+                f"{BED_PACKING_EFFICIENCY:g} / {sample.area_mm2:.0f} "
+                f"= {pieces_per_bed(sample.area_mm2)}"
+            ),
         ),
     ]
 
@@ -413,8 +428,8 @@ def _formula_block(estimate: SetEstimate, sheet: Any) -> list[Any]:
             [
                 ("ALIGN", (0, 0), (-1, -1), "LEFT"),
                 ("TOPPADDING", (0, 1), (-1, -1), 5),
-            ]
-        )
+            ],
+        ),
     )
     return [table]
 
@@ -454,19 +469,29 @@ def _practical_notes(estimate: SetEstimate, sheet: Any) -> list[Any]:
     per_bed = pieces_per_bed(max(part.area_mm2 for part in estimate.pieces))
     layers = max(1, round(estimate.style.piece_thickness / estimate.settings.layer_height_mm))
     notes = [
-        "These are flat parts: print them lying on the bed. No supports are needed and "
-        "the silhouette is a single connected piece, so nothing comes loose.",
-        f"At {estimate.settings.layer_height_mm:g} mm layers each piece is about "
-        f"{layers} layers tall. Slicers lay {SOLID_LAYERS} solid layers top and bottom, "
-        "so below that thickness the part is effectively solid whatever the infill.",
-        f"Roughly {per_bed} pieces fit on a "
-        f"{DEFAULT_BED_MM[0]:g}x{DEFAULT_BED_MM[1]:g} mm bed at "
-        f"{BED_PACKING_EFFICIENCY:.0%} packing, so the set takes a few batches.",
-        "First-layer squish (elephant's foot) widens the base slightly. If the pieces "
-        "feel tight on the squares, add a small horizontal expansion of -0.1 mm.",
-        f"The narrowest piece is the {smallest.name} at {smallest.area_mm2:.0f} mm2 of "
-        "footprint; use at least two perimeters so thin necks stay solid. Spools are "
-        "sold in 500 g and 1 kg units, so one covers many sets.",
+        (
+            "These are flat parts: print them lying on the bed. No supports are needed and "
+            "the silhouette is a single connected piece, so nothing comes loose."
+        ),
+        (
+            f"At {estimate.settings.layer_height_mm:g} mm layers each piece is about "
+            f"{layers} layers tall. Slicers lay {SOLID_LAYERS} solid layers top and bottom, "
+            "so below that thickness the part is effectively solid whatever the infill."
+        ),
+        (
+            f"Roughly {per_bed} pieces fit on a "
+            f"{DEFAULT_BED_MM[0]:g}x{DEFAULT_BED_MM[1]:g} mm bed at "
+            f"{BED_PACKING_EFFICIENCY:.0%} packing, so the set takes a few batches."
+        ),
+        (
+            "First-layer squish (elephant's foot) widens the base slightly. If the pieces "
+            "feel tight on the squares, add a small horizontal expansion of -0.1 mm."
+        ),
+        (
+            f"The narrowest piece is the {smallest.name} at {smallest.area_mm2:.0f} mm2 of "
+            "footprint; use at least two perimeters so thin necks stay solid. Spools are "
+            "sold in 500 g and 1 kg units, so one covers many sets."
+        ),
     ]
     return [Paragraph(f"&bull; {note}", sheet["C2Body"]) for note in notes]
 
@@ -483,7 +508,7 @@ def write_material_report(
     from ``style`` and ``settings``.
     """
     from reportlab.lib.pagesizes import A4  # noqa: PLC0415
-    from reportlab.lib.units import mm as MM  # noqa: PLC0415
+    from reportlab.lib.units import mm  # noqa: PLC0415
     from reportlab.platypus import (  # noqa: PLC0415
         PageBreak,
         Paragraph,
@@ -503,16 +528,16 @@ def write_material_report(
         pagesize=A4,
         title="3D printing material estimate - 2D chess set",
         author="chess2d",
-        leftMargin=18 * MM,
-        rightMargin=18 * MM,
-        topMargin=15 * MM,
-        bottomMargin=15 * MM,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=15 * mm,
+        bottomMargin=15 * mm,
     )
 
     story: list[Flowable] = [
         Paragraph("3D printing material estimate", sheet["C2Title"]),
         Paragraph(
-            f"Parametric 2D chess set &middot; generated {date.today().isoformat()}. "
+            f"Parametric 2D chess set &middot; generated {_today().isoformat()}. "
             "Planning figures worked out from the exact exported geometry -- helpful "
             "for buying material, but not a substitute for slicing the STL files.",
             sheet["C2Sub"],
@@ -542,7 +567,7 @@ def write_material_report(
             sheet["C2Small"],
         ),
         Spacer(1, 4),
-        _piece_table(estimate, sheet),
+        _piece_table(estimate),
         PageBreak(),
         Paragraph("How these numbers are worked out", sheet["C2H"]),
         Paragraph(

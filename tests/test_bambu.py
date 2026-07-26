@@ -8,6 +8,7 @@ that would be run.
 from __future__ import annotations
 
 import json
+import re
 import zipfile
 from pathlib import Path
 
@@ -153,8 +154,6 @@ def test_3mf_is_a_valid_container_with_one_object_per_part(tmp_path: Path) -> No
 
 
 def test_3mf_geometry_is_millimetres_in_the_positive_quadrant(tmp_path: Path) -> None:
-    import re
-
     style = ChessStyle(piece_thickness=2.0)
     path, _ = export_plate_3mf(tmp_path / "plate.3mf", style, PlateContents.SAMPLE)
     model = zipfile.ZipFile(path).read("3D/3dmodel.model").decode()
@@ -207,7 +206,7 @@ def test_an_explicit_path_wins_and_a_missing_one_is_not_invented(tmp_path: Path)
 
 
 def test_the_environment_variable_is_honoured(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake = tmp_path / "BambuStudio"
     fake.write_text("")
@@ -216,7 +215,7 @@ def test_the_environment_variable_is_honoured(
 
 
 def test_slicing_without_bambu_studio_fails_loudly(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("chess2d.bambu.find_bambu_studio", lambda _=None: None)
     with pytest.raises(BambuStudioError, match="not found"):
@@ -236,7 +235,7 @@ def _fake_install(tmp_path: Path) -> Path:
     ):
         (profiles / kind).mkdir(parents=True, exist_ok=True)
         (profiles / kind / f"{name}.json").write_text(
-            json.dumps({"name": name, "type": kind}), encoding="utf-8"
+            json.dumps({"name": name, "type": kind}), encoding="utf-8",
         )
     return executable
 
@@ -248,7 +247,7 @@ def test_system_profiles_are_resolved_by_name(tmp_path: Path) -> None:
 
 
 def test_the_profile_directory_can_be_pointed_at_explicitly(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # How the container finds them: the executable is a wrapper script in
     # /usr/local/bin, so no amount of walking up from it reaches the profiles.
@@ -296,7 +295,7 @@ def _install_with_profiles(tmp_path: Path) -> Path:
     def write(kind: str, name: str, data: dict[str, object]) -> None:
         (bbl / kind).mkdir(parents=True, exist_ok=True)
         (bbl / kind / f"{name}.json").write_text(
-            json.dumps({"name": name, **data}), encoding="utf-8"
+            json.dumps({"name": name, **data}), encoding="utf-8",
         )
 
     # Machines inherit too: the leaf carries overrides, the base the bulk.
@@ -376,7 +375,7 @@ def test_flattening_survives_a_cyclic_inherits(tmp_path: Path) -> None:
     process = tmp_path / "BambuStudio.app" / "Contents" / "Resources"
     process = process / "profiles" / "BBL" / "process"
     (process / "loop_a.json").write_text(
-        json.dumps({"name": "loop_a", "inherits": "loop_b"}), encoding="utf-8"
+        json.dumps({"name": "loop_a", "inherits": "loop_b"}), encoding="utf-8",
     )
     (process / "loop_b.json").write_text(
         json.dumps({"name": "loop_b", "inherits": "loop_a", "layer_height": "0.2"}),
@@ -388,7 +387,7 @@ def test_flattening_survives_a_cyclic_inherits(tmp_path: Path) -> None:
 
 
 def test_the_slicer_is_handed_a_complete_config_not_a_fragment(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # The regression this guards: passing the installation's own leaf JSON makes
     # Bambu Studio exit 239 with "process not compatible with printer", because
@@ -487,7 +486,7 @@ def test_the_resolved_pair_is_one_the_slicer_accepts(tmp_path: Path) -> None:
 def test_a_process_preference_is_honoured_when_compatible(tmp_path: Path) -> None:
     executable = _install_with_profiles(tmp_path)
     _, process = resolve_printer_profiles(
-        PRINTERS["Bambu Lab P1S"], executable, process_preference="0.08mm Extra Fine"
+        PRINTERS["Bambu Lab P1S"], executable, process_preference="0.08mm Extra Fine",
     )
     assert process == "0.08mm Extra Fine @BBL P1P"
 
@@ -497,7 +496,7 @@ def test_an_impossible_preference_falls_back_to_something_compatible(
 ) -> None:
     executable = _install_with_profiles(tmp_path)
     machine, process = resolve_printer_profiles(
-        PRINTERS["Bambu Lab P1S"], executable, process_preference="0.20mm Standard @BBL A1M"
+        PRINTERS["Bambu Lab P1S"], executable, process_preference="0.20mm Standard @BBL A1M",
     )
     # Never hand back the incompatible one just because it was asked for.
     assert process != "0.20mm Standard @BBL A1M"
@@ -511,7 +510,7 @@ def test_without_an_installation_the_table_is_used_as_given(tmp_path: Path) -> N
 
 
 def test_an_incompatible_pair_is_refused_before_the_slicer_runs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     executable = _install_with_profiles(tmp_path)
 
@@ -532,7 +531,7 @@ def test_an_incompatible_pair_is_refused_before_the_slicer_runs(
 
 
 def test_an_exported_profile_path_is_the_users_business(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # A .json path is a preset the user exported themselves; we cannot second
     # guess its compatibility, so the pairing check must stand aside.
@@ -563,7 +562,7 @@ def test_an_exported_profile_path_is_the_users_business(
 
 
 def test_the_slice_command_carries_the_profiles_and_output(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     executable = _fake_install(tmp_path)
     output = tmp_path / "plate.gcode.3mf"
@@ -623,7 +622,7 @@ def test_the_slice_command_carries_the_profiles_and_output(
 # --------------------------------------------------------------------------
 
 needs_bambu_studio = pytest.mark.skipif(
-    find_bambu_studio() is None, reason="Bambu Studio is not installed"
+    find_bambu_studio() is None, reason="Bambu Studio is not installed",
 )
 
 
@@ -690,7 +689,7 @@ def test_a_plate_really_slices(tmp_path: Path) -> None:
 
 
 def test_a_failed_slice_reports_the_slicer_output(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     executable = _fake_install(tmp_path)
 
@@ -699,8 +698,8 @@ def test_a_failed_slice_reports_the_slicer_output(
         stdout = "slicing failed: bed is too small"
         stderr = ""
 
-    monkeypatch.setattr("chess2d.bambu.subprocess.run", lambda *a, **k: Result())
+    monkeypatch.setattr("chess2d.bambu.subprocess.run", lambda *_a, **_k: Result())
     with pytest.raises(BambuStudioError, match="bed is too small"):
         slice_with_bambu_studio(
-            tmp_path / "plate.3mf", tmp_path / "out.gcode.3mf", executable=executable
+            tmp_path / "plate.3mf", tmp_path / "out.gcode.3mf", executable=executable,
         )

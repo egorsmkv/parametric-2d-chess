@@ -34,18 +34,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/chess2d"]
 
-[tool.ruff]
-line-length = 100
-target-version = "py310"
-
-[tool.ruff.lint]
-# PLW1514 is a preview rule, so it needs explicit-preview-rules to be opted into
-# on its own rather than dragging in every other preview rule. It catches text
-# I/O that inherits the locale's encoding -- which is ASCII on a bare CI runner
-# or in the Space's container, and has broken the build once already.
-select = ["E", "F", "I", "UP", "B", "SIM", "PLW1514"]
-preview = true
-explicit-preview-rules = true
+# Ruff is configured in ruff.toml at the repo root.
 
 [tool.mypy]
 python_version = "3.12"

@@ -15,7 +15,7 @@ from pathlib import Path
 # Allow running directly from a source checkout without installation.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from chess2d.gradio_app import main  # noqa: E402
+from chess2d.gradio_app import main
 
 
 def _parse(argv: list[str]) -> dict[str, object]:

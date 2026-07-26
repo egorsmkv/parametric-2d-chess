@@ -34,8 +34,8 @@ from pathlib import Path
 # Allow running directly from a source checkout without installation.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from chess2d.export import generate_all  # noqa: E402
-from chess2d.parameters import (  # noqa: E402
+from chess2d.export import generate_all
+from chess2d.parameters import (
     BOARD_SIZE_PRESETS,
     FIGURE_SIZE_PRESETS,
     ChessStyle,
@@ -70,7 +70,7 @@ def _choice(argv: list[str], flag: str, enum: type[PieceStyle]) -> PieceStyle:
         return enum(value)
     except ValueError:
         raise SystemExit(
-            f"unknown {flag} value {value!r}; choose from: {', '.join(names)}"
+            f"unknown {flag} value {value!r}; choose from: {', '.join(names)}",
         ) from None
 
 
@@ -100,10 +100,10 @@ def main(argv: list[str]) -> int:
     print(
         f"Generating chess set into {output_dir!r} "
         f"(solids={with_solids}, 3mf={with_3mf}, style={piece_style.value}, "
-        f"figure_mode={mode.value}, board={board_name}, figures={figure_name}) ..."
+        f"figure_mode={mode.value}, board={board_name}, figures={figure_name}) ...",
     )
     written = generate_all(
-        output_dir=output_dir, style=style, with_solids=with_solids, with_3mf=with_3mf
+        output_dir=output_dir, style=style, with_solids=with_solids, with_3mf=with_3mf,
     )
     for path in written:
         print(f"  wrote {path}")

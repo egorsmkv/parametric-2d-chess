@@ -98,7 +98,7 @@ def wall_fraction(area_mm2: float, perimeter_mm: float, settings: PrintSettings)
 
 
 def printed_fraction(
-    area_mm2: float, perimeter_mm: float, thickness_mm: float, settings: PrintSettings
+    area_mm2: float, perimeter_mm: float, thickness_mm: float, settings: PrintSettings,
 ) -> float:
     """Share of the solid volume a sparse-infill print actually deposits.
 
@@ -164,7 +164,7 @@ class PartEstimate:
     def printed_volume_mm3(self, settings: PrintSettings) -> float:
         """Lower bound: what a sparse-infill print deposits."""
         return self.solid_volume_mm3 * printed_fraction(
-            self.area_mm2, self.perimeter_mm, self.thickness_mm, settings
+            self.area_mm2, self.perimeter_mm, self.thickness_mm, settings,
         )
 
     def total_solid_mm3(self) -> float:
@@ -277,7 +277,7 @@ def estimate_set(
                 area_mm2=_footprint_area(sketch, style.piece_thickness),
                 perimeter_mm=_perimeter(sketch),
                 thickness_mm=style.piece_thickness,
-            )
+            ),
         )
 
     # The board solid the exporter writes is the playing surface only (the

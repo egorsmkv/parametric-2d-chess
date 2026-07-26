@@ -44,9 +44,9 @@ __all__ = [
     "DEFAULT_TOLERANCE",
     "EXECUTABLE_ENV",
     "NOZZLE_SIZES",
-    "PROFILES_ENV",
     "PLATE_CONTENTS",
     "PRINTERS",
+    "PROFILES_ENV",
     "BambuStudioError",
     "Placement",
     "PlateContents",
@@ -325,7 +325,7 @@ def arrange_plate(
                 y=PLATE_MARGIN + cursor_y + height / 2,
                 width=width,
                 height=height,
-            )
+            ),
         )
         cursor_x += width + gap
         widest = max(widest, cursor_x - gap)
@@ -384,7 +384,7 @@ def make_plate(
                 placement.y - box.center().Y,
                 -box.min.Z,
             )
-            * solid
+            * solid,
         )
     return parts, layout
 
@@ -436,8 +436,11 @@ def export_pieces_3mf(
     tolerance: float = DEFAULT_TOLERANCE,
     angular_tolerance: float = DEFAULT_ANGULAR_TOLERANCE,
 ) -> Path:
-    """Write one of each piece to a 3MF, in the same signature style as the
-    STEP/STL writers in :mod:`chess2d.export`."""
+    """Write one of each piece to a 3MF.
+
+    Takes the same signature style as the STEP/STL writers in
+    :mod:`chess2d.export`.
+    """
     out, _ = export_plate_3mf(
         path,
         style=ChessStyle(
@@ -565,7 +568,7 @@ def resolve_profile(
     if root is None:
         raise BambuStudioError(
             f"cannot resolve the {kind} profile {profile!r} by name: the Bambu Studio "
-            "profile directory was not found. Pass a path to a .json profile instead."
+            "profile directory was not found. Pass a path to a .json profile instead.",
         )
     # Vendor trees are one directory per vendor; BBL is Bambu's own.
     for vendor in sorted(root.iterdir()):
@@ -705,7 +708,7 @@ def resolve_printer_profiles(
         return printer.machine_profile, printer.process_profile
 
     return machine, resolve_process(
-        machine, process_preference or printer.process_profile, executable
+        machine, process_preference or printer.process_profile, executable,
     )
 
 
@@ -776,7 +779,7 @@ def machine_profiles(printer: Printer, executable: str | Path | None = None) -> 
             for name, path in machines.items()
             if flatten_profile(path).get("printer_model") == printer.name
         ),
-        key=lambda name: _nozzle_of(name),
+        key=_nozzle_of,
     )
     if installed:
         return installed
@@ -827,7 +830,7 @@ class SliceReport:
 
     def duration(self) -> str:
         """The print time as "1 h 25 min", or "48 min" under the hour."""
-        total = int(round(self.seconds))
+        total = round(self.seconds)
         hours, minutes = divmod(total // 60, 60)
         return f"{hours} h {minutes:02d} min" if hours else f"{minutes} min"
 
@@ -845,7 +848,9 @@ def read_slice_report(sliced: str | Path) -> SliceReport | None:
         return None
 
     try:
-        plate = ElementTree.fromstring(raw).find("plate")
+        # ``raw`` is slice metadata Bambu Studio itself wrote into a file this
+        # process just produced, not third-party input.
+        plate = ElementTree.fromstring(raw).find("plate")  # noqa: S314
     except ElementTree.ParseError:
         return None
     if plate is None:
@@ -921,7 +926,7 @@ def _check_pairing(
         f"the process profile {str(process)!r} does not list {str(machine)!r} among "
         f"its compatible printers, so Bambu Studio would refuse to slice it. "
         f"Compatible here: {shortlist}"
-        + (f" (and {len(allowed) - 5} more)" if len(allowed) > 5 else "")
+        + (f" (and {len(allowed) - 5} more)" if len(allowed) > 5 else ""),
     )
 
 
@@ -950,7 +955,7 @@ def slice_with_bambu_studio(
     if binary is None:
         raise BambuStudioError(
             "Bambu Studio was not found. Install it, or set $BAMBU_STUDIO to the "
-            "executable, to export a sliced .gcode.3mf."
+            "executable, to export a sliced .gcode.3mf.",
         )
 
     out = Path(output)
@@ -981,8 +986,8 @@ def slice_with_bambu_studio(
         command += ["--slice", "0", "--export-3mf", str(out), str(model)]
 
         try:
-            result = subprocess.run(
-                command, capture_output=True, text=True, timeout=timeout, check=False
+            result = subprocess.run(  # noqa: S603 - argv is built here, never shell-interpolated
+                command, capture_output=True, text=True, timeout=timeout, check=False,
             )
         except OSError as error:  # pragma: no cover - depends on the local install
             raise BambuStudioError(f"could not run Bambu Studio: {error}") from error
@@ -994,6 +999,6 @@ def slice_with_bambu_studio(
         detail = (result.stderr or result.stdout or "").strip().splitlines()
         tail = "\n".join(detail[-8:]) if detail else "no output"
         raise BambuStudioError(
-            f"Bambu Studio exited with {result.returncode} and wrote no file.\n{tail}"
+            f"Bambu Studio exited with {result.returncode} and wrote no file.\n{tail}",
         )
     return out

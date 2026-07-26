@@ -35,7 +35,7 @@ def test_every_style_is_registered_with_all_six_generators() -> None:
 @pytest.mark.parametrize(("style", "mode"), STYLES_AND_MODES)
 @pytest.mark.parametrize("piece_type", list(PieceType))
 def test_piece_is_a_single_connected_face(
-    piece_type: PieceType, style: PieceStyle, mode: FigureMode
+    piece_type: PieceType, style: PieceStyle, mode: FigureMode,
 ) -> None:
     # The printability rule: one piece must come off the bed or cutter as one
     # part, with a positive area and closed boundaries.

@@ -78,10 +78,10 @@ def export_board_svg(board: BoardGeometry, path: str | Path) -> Path:
     out = _ensure_parent(path)
     exporter = ExportSVG(fit_to_stroke=True)
     exporter.add_layer(
-        "light", fill_color=_color(LIGHT_SQUARE_COLOR), line_color=_color(DARK_SQUARE_COLOR)
+        "light", fill_color=_color(LIGHT_SQUARE_COLOR), line_color=_color(DARK_SQUARE_COLOR),
     )
     exporter.add_layer(
-        "dark", fill_color=_color(DARK_SQUARE_COLOR), line_color=_color(DARK_SQUARE_COLOR)
+        "dark", fill_color=_color(DARK_SQUARE_COLOR), line_color=_color(DARK_SQUARE_COLOR),
     )
     exporter.add_shape(board.light_squares, layer="light")
     exporter.add_shape(board.dark_squares, layer="dark")
@@ -97,16 +97,16 @@ def export_composition_svg(composition: ChessComposition, path: str | Path) -> P
     out = _ensure_parent(path)
     exporter = ExportSVG(fit_to_stroke=True)
     exporter.add_layer(
-        "light", fill_color=_color(LIGHT_SQUARE_COLOR), line_color=_color(DARK_SQUARE_COLOR)
+        "light", fill_color=_color(LIGHT_SQUARE_COLOR), line_color=_color(DARK_SQUARE_COLOR),
     )
     exporter.add_layer(
-        "dark", fill_color=_color(DARK_SQUARE_COLOR), line_color=_color(DARK_SQUARE_COLOR)
+        "dark", fill_color=_color(DARK_SQUARE_COLOR), line_color=_color(DARK_SQUARE_COLOR),
     )
     exporter.add_layer(
-        "white_pieces", fill_color=_color(WHITE_FILL_COLOR), line_color=Color(0.2, 0.2, 0.2)
+        "white_pieces", fill_color=_color(WHITE_FILL_COLOR), line_color=Color(0.2, 0.2, 0.2),
     )
     exporter.add_layer(
-        "black_pieces", fill_color=_color(BLACK_FILL_COLOR), line_color=Color(0.1, 0.1, 0.1)
+        "black_pieces", fill_color=_color(BLACK_FILL_COLOR), line_color=Color(0.1, 0.1, 0.1),
     )
     exporter.add_shape(composition.board.light_squares, layer="light")
     exporter.add_shape(composition.board.dark_squares, layer="dark")
@@ -235,23 +235,23 @@ def generate_all(
     # --- SVG ---
     svg_dir = root / "svg"
     written.append(export_board_svg(board, svg_dir / "board.svg"))
-    for pt in PieceType:
-        written.append(
-            export_piece_svg(
-                pt,
-                svg_dir / f"{pt.value}.svg",
-                style.piece_scale,
-                mode=style.figure_mode,
-                square_size=style.square_size,
-                style=style.piece_style,
-            )
+    written.extend(
+        export_piece_svg(
+            pt,
+            svg_dir / f"{pt.value}.svg",
+            style.piece_scale,
+            mode=style.figure_mode,
+            square_size=style.square_size,
+            style=style.piece_style,
         )
+        for pt in PieceType
+    )
     written.append(export_composition_svg(composition, svg_dir / "initial_position.svg"))
 
     # --- DXF ---
     dxf_dir = root / "dxf"
     written.append(
-        export_dxf({"board": board.light_squares + board.dark_squares}, dxf_dir / "board.dxf")
+        export_dxf({"board": board.light_squares + board.dark_squares}, dxf_dir / "board.dxf"),
     )
     # Space the pieces out so they do not overlap in the DXF.
     spaced = {
@@ -275,7 +275,7 @@ def generate_all(
                 "black_pieces": composition.black_pieces,
             },
             dxf_dir / "initial_position.dxf",
-        )
+        ),
     )
 
     if with_solids:
@@ -296,20 +296,20 @@ def generate_all(
                 mode=style.figure_mode,
                 square_size=style.square_size,
                 style=style.piece_style,
-            )
+            ),
         )
-        for pt in PieceType:
-            written.append(
-                export_piece_stl(
-                    pt,
-                    stl_dir / f"{pt.value}.stl",
-                    style.piece_thickness,
-                    style.piece_scale,
-                    mode=style.figure_mode,
-                    square_size=style.square_size,
-                    style=style.piece_style,
-                )
+        written.extend(
+            export_piece_stl(
+                pt,
+                stl_dir / f"{pt.value}.stl",
+                style.piece_thickness,
+                style.piece_scale,
+                mode=style.figure_mode,
+                square_size=style.square_size,
+                style=style.piece_style,
             )
+            for pt in PieceType
+        )
 
     if with_3mf:
         # Imported here: the 3MF writer is only needed on this branch, and the
@@ -324,7 +324,7 @@ def generate_all(
                 mode=style.figure_mode,
                 square_size=style.square_size,
                 style=style.piece_style,
-            )
+            ),
         )
 
     return written

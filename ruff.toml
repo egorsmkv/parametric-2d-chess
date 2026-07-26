@@ -1,0 +1,69 @@
+line-length = 100
+target-version = "py310"
+
+[lint]
+# Start from everything, then subtract. `just check` runs the same ruleset, so a
+# new rule shipped by a ruff upgrade shows up here rather than going unnoticed.
+select = ["ALL"]
+# PLW1514 is a preview rule, so it needs explicit-preview-rules to be opted into
+# on its own rather than dragging in every other preview rule. It catches text
+# I/O that inherits the locale's encoding -- which is ASCII on a bare CI runner
+# or in the Space's container, and has broken the build once already.
+preview = true
+explicit-preview-rules = true
+
+ignore = [
+    # --- Conflicts with `ruff format`, per ruff's own warning ---
+    "COM812",
+
+    # --- House style: this is a small single-author project ---
+    "CPY001",  # no copyright headers
+    "D1",      # docstrings are written where they earn their keep, not everywhere
+    "D203",    # incompatible with D211, which we keep
+    "D213",    # incompatible with D212, which we keep
+    "D401",    # imperative mood: many summaries read better as noun phrases
+    "TID252",  # the package imports its own siblings relatively, on purpose
+    "INP001",  # scripts/, tests/ and space/ are not importable packages
+
+    # --- Public API shape is fixed by the geometry it describes ---
+    "PLR0913", # builders legitimately take many dimensions
+    "PLR0917",
+    "PLR2004", # geometry code is full of literal millimetres
+    "FBT001",  # boolean flags are part of the existing signatures
+    "FBT002",
+    "FBT003",
+    "ANN401",  # reportlab and build123d hand back untyped objects
+
+    # --- Exception style ---
+    "EM101",   # short literal messages inline read better than a temp variable
+    "EM102",
+    "TRY003",  # ditto for f-strings
+    "TRY300",  # `else` after `try` obscures more than it clarifies here
+
+    # --- False positives on this codebase ---
+    "ERA001",  # trips on path examples inside comments
+    "ICN001",  # `ElementTree` is clearer than the conventional `ET`
+    "RUF001",  # user-facing strings deliberately use x, -- and friends
+    "RUF002",
+    "RUF003",
+    "TC001",   # runtime-available annotations cost nothing here
+    "TC002",
+    "TC003",
+    "PERF203", # try/except in a loop is the right shape for per-item recovery
+]
+
+[lint.per-file-ignores]
+"tests/**" = [
+    "S101",    # pytest asserts
+    "SLF001",  # tests reach into private helpers on purpose
+    "PT018",   # composite asserts keep related checks together
+    "S603",    # subprocesses are spawned from argv this file builds
+]
+"scripts/**" = [
+    "T201",    # these are CLIs; print is the output
+    "S603",    # argv is built here, never shell-interpolated
+]
+"build_model.py" = ["T201"]
+
+[format]
+docstring-code-format = true

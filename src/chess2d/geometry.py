@@ -14,8 +14,11 @@ from build123d import (
     Rectangle,
     RectangleRounded,
     Rot,
+    ShapeList,
     Sketch,
+    Wire,
     mirror,
+    offset,
     scale,
 )
 
@@ -130,15 +133,14 @@ def scaled(sketch: Sketch, factor: float) -> Sketch:
     return scale(sketch, by=factor)
 
 
-def outline_wires(sketch: Sketch):
+def outline_wires(sketch: Sketch) -> ShapeList[Wire]:
     """Return the boundary wires of a filled sketch as a manufacturing outline.
 
     This avoids the fragile inward-offset approach on silhouettes with sharp
     detail (spec 9.2): the outer/inner wires of the resolved face are always a
     set of valid closed loops suitable for plotting or CNC contouring.
     """
-    wires = sketch.wires()
-    return wires
+    return sketch.wires()
 
 
 def outline_ring(sketch: Sketch, width: float) -> Sketch | None:
@@ -147,8 +149,6 @@ def outline_ring(sketch: Sketch, width: float) -> Sketch | None:
     Returns ``None`` when the offset is not robust for the given silhouette so
     callers can fall back to :func:`outline_wires`.
     """
-    from build123d import offset
-
     try:
         inner = offset(sketch, amount=-width)
         ring = sketch - inner

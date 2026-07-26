@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
-from chess2d.export import generate_all  # noqa: E402
+from chess2d.export import generate_all
 
 
 def main() -> None:

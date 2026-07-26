@@ -285,7 +285,7 @@ def build_preview(
             f'<div class="c2-art">{_svg_inline(piece_svg)}</div>'
             f"<figcaption>{piece_type.value}"
             f"<small>{width:.0f} × {height:.0f} mm</small>"
-            "</figcaption></figure>"
+            "</figcaption></figure>",
         )
 
     # Coordinates: files a-h left to right, ranks 8-1 top to bottom (White at the
@@ -303,7 +303,7 @@ def build_preview(
             _chip("Figures", f"{style.piece_scale * FIGURE_FILL_FRACTION:.0%} of square"),
             _chip("Tallest", f"{tallest:.0f} mm"),
             _chip("Thickness", f"{style.piece_thickness:g} mm"),
-        )
+        ),
     )
 
     return (
@@ -358,7 +358,7 @@ def build_report(
         board_thickness,
     )
     settings = _print_settings(
-        material, filament_diameter, price_per_kg, layer_height, infill_percent
+        material, filament_diameter, price_per_kg, layer_height, infill_percent,
     )
     stem = _config_stem(style, board_label, figure_label)
     path = _fresh_dir("report") / f"{stem}_printing-estimate.pdf"
@@ -448,7 +448,7 @@ def build_bambu(
     if not layout.fits:
         lines.append(
             "Too big for one plate — print it in batches, pick a smaller board "
-            "size, or let Bambu Studio split it across plates."
+            "size, or let Bambu Studio split it across plates.",
         )
 
     if do_slice:
@@ -457,7 +457,7 @@ def build_bambu(
         # and Bambu renames presets between releases.
         wanted_machine, wanted_process = _chosen(machine), _chosen(process)
         chosen_machine, chosen_process = resolve_printer_profiles(
-            printer, process_preference=wanted_process or None
+            printer, process_preference=wanted_process or None,
         )
         used = wanted_machine or chosen_machine
         # A machine override changes which processes are legal -- a 0.6 mm
@@ -480,7 +480,7 @@ def build_bambu(
             lines.append(
                 f"**Sliced** with `{used}` + `{used_process}`"
                 + (f" + `{used_filament}`" if used_filament else "")
-                + f": `{path.name}` is printer-ready."
+                + f": `{path.name}` is printer-ready.",
             )
             # The slicer's own prediction for this exact machine and process --
             # no estimate of ours can improve on it.
@@ -489,12 +489,12 @@ def build_bambu(
                     f"**Print time {report.duration()}** on the {printer.name}, "
                     f"{report.grams:.0f} g of filament"
                     + (f" ({report.metres:.1f} m)" if report.metres else "")
-                    + ". Bambu Studio's own estimate for this plate."
+                    + ". Bambu Studio's own estimate for this plate.",
                 )
         except BambuStudioError as error:
             lines.append(
                 f"**Not sliced.** {error} \n"
-                "The generic `.3mf` below is unsliced — open it in Bambu Studio."
+                "The generic `.3mf` below is unsliced — open it in Bambu Studio.",
             )
     else:
         lines.append("Generic 3MF: open it in Bambu Studio, then slice.")
@@ -536,7 +536,7 @@ def build_files(
 
     # The printing estimate travels with the models it describes.
     settings = _print_settings(
-        material, filament_diameter, price_per_kg, layer_height, infill_percent
+        material, filament_diameter, price_per_kg, layer_height, infill_percent,
     )
     write_material_report(out_dir / REPORT_FILENAME, style=style, settings=settings)
 
@@ -553,7 +553,7 @@ def build_demo() -> gr.Blocks:
             "Parametric chessboard and flat piece silhouettes, generated with "
             "[build123d](https://build123d.readthedocs.io). Configure it, watch the "
             "board update, then download **SVG / DXF / STEP / STL / 3MF** — "
-            "including a print plate for Bambu Lab machines."
+            "including a print plate for Bambu Lab machines.",
         )
         with gr.Row():
             with gr.Column(scale=2, min_width=280):
@@ -608,7 +608,7 @@ def build_demo() -> gr.Blocks:
                 with gr.Accordion("3D printing estimate", open=False):
                     gr.Markdown(
                         "<small>Drives the material report. These do not change the "
-                        "board drawing.</small>"
+                        "board drawing.</small>",
                     )
                     material = gr.Dropdown(
                         choices=list(MATERIALS.keys()),
@@ -627,7 +627,7 @@ def build_demo() -> gr.Blocks:
                         info="In your own currency; the report just multiplies.",
                     )
                     layer_height = gr.Slider(
-                        0.08, 0.32, value=0.2, step=0.02, label="Layer height (mm)"
+                        0.08, 0.32, value=0.2, step=0.02, label="Layer height (mm)",
                     )
                     infill = gr.Slider(
                         0,
@@ -643,7 +643,7 @@ def build_demo() -> gr.Blocks:
                     gr.Markdown(
                         "<small>Lay the pieces out on a Bambu build plate and export "
                         "a 3MF. Uses the piece style, size and thickness chosen "
-                        "above.</small>"
+                        "above.</small>",
                     )
                     # Annotated Any for the same reason as the buttons below:
                     # .change is attached dynamically, and how much of that a
@@ -703,7 +703,7 @@ def build_demo() -> gr.Blocks:
                 download = gr.File(label="Your download", height=120)
                 gr.Markdown(
                     "<small>The archive holds `svg/`, `dxf/`, the printing estimate "
-                    "PDF and, with solids enabled, `step/` + `stl/` + `3mf/`.</small>"
+                    "PDF and, with solids enabled, `step/` + `stl/` + `3mf/`.</small>",
                 )
             with gr.Column(scale=3, min_width=360):
                 preview = gr.HTML(value=_PLACEHOLDER, label="Preview")

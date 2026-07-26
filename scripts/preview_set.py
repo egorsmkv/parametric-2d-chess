@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from chess2d.preview import preview_composition, preview_pieces  # noqa: E402
+from chess2d.preview import preview_composition, preview_pieces
 
 
 def main(argv: list[str]) -> int:
