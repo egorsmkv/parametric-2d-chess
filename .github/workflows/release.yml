@@ -38,22 +38,27 @@ jobs:
           rsvg-convert --version
 
       - name: Install dependencies
-        run: uv sync
+        # The `app` extra pulls in gradio. The test suite needs it: the Space
+        # payload test imports chess2d.gradio_app in a subprocess and asserts it
+        # loads, with no importorskip to fall back on. Every `uv run` below
+        # repeats the flag, because one without it re-syncs the environment and
+        # drops the extra again.
+        run: uv sync --extra app
 
       - name: Lint and type-check
         run: |
-          uv run ruff check .
-          uv run mypy
+          uv run --extra app ruff check .
+          uv run --extra app mypy
 
       - name: Run tests
-        run: uv run pytest -q
+        run: uv run --extra app pytest -q
 
       - name: Resolve version label
         id: version
         run: echo "value=${{ github.event_name == 'push' && github.ref_name || inputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Build release artifacts
-        run: uv run python scripts/build_release.py --version "${{ steps.version.outputs.value }}"
+        run: uv run --extra app python scripts/build_release.py --version "${{ steps.version.outputs.value }}"
 
       - name: Verify artifacts
         run: |
