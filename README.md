@@ -6,7 +6,14 @@ reproduces the classic composition — an 8×8 cream/green board with the standa
 opening arrangement, White at the bottom and Black at the top — as stylised flat
 symbols rather than sculpted 3D geometry.
 
+## Demo
+
 <img src="demo.png" width="800">
+
+## Already printed chess set
+
+<img src="demo-real.jpeg" width="800">
+
 
 Each piece is available in three forms:
 
